@@ -1,4 +1,7 @@
 from typing import Dict
+
+import numpy as np
+
 from solvers.PoissonSolver import PoissonSolver
 
 
@@ -21,7 +24,21 @@ class Solver:
     def equation(self) -> str:
         return self._equation
 
+    @property
+    def x(self) -> np.ndarray:
+        return self._solver.x
+
+    @property
+    def A(self) -> np.ndarray:
+        return self._solver.A
+
+    @property
+    def b(self) -> np.ndarray:
+        return self._solver.b
+
     def solve(self):
         if self._solver:
-            self._solver.solve()
+            return self._solver.solve()
 
+    def change_D(self, D):
+        self._params['D'] = D
