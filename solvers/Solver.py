@@ -4,7 +4,10 @@ from solvers.PoissonSolver import PoissonSolver
 
 class Solver:
     def __init__(self, params: Dict):
+        assert isinstance(params, Dict)
         self._params = params
+
+        assert isinstance(params['equation'], str)
         self._equation = params['equation']
 
         if self._equation == 'Poisson':
@@ -12,6 +15,7 @@ class Solver:
         else:
             # Solver not implemented yet
             self._solver = None
+        assert True
 
     @property
     def equation(self) -> str:
@@ -20,3 +24,4 @@ class Solver:
     def solve(self):
         if self._solver:
             self._solver.solve()
+
