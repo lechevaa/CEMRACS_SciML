@@ -1,3 +1,4 @@
+import copy
 from typing import Dict
 
 import numpy as np
@@ -8,13 +9,13 @@ from solvers.PoissonSolver import PoissonSolver
 class Solver:
     def __init__(self, params: Dict):
         assert isinstance(params, Dict)
-        self._params = params
+        self._solver_params = params['solver']
 
-        assert isinstance(params['equation'], str)
-        self._equation = params['equation']
+        assert isinstance(params['solver']['equation'], str)
+        self._equation = params['solver']['equation']
 
         if self._equation == 'Poisson':
-            self._solver = PoissonSolver(params=self._params)
+            self._solver = PoissonSolver(params=self._solver_params)
         else:
             # Solver not implemented yet
             self._solver = None
@@ -36,9 +37,17 @@ class Solver:
     def b(self) -> np.ndarray:
         return self._solver.b
 
+    @property
+    def D(self) -> np.ndarray:
+        return self._solver.D
+
     def solve(self):
         if self._solver:
             return self._solver.solve()
 
-    def change_D(self, D):
-        self._params['D'] = D
+    def change_D(self, new_D):
+        self._solver_params = copy.deepcopy(self._solver_params)
+        self._solver_params['D'] = new_D
+        self._solver.update(self._solver_params)
+
+
