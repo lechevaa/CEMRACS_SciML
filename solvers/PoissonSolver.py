@@ -28,6 +28,10 @@ class PoissonSolver:
         return self._x
 
     @property
+    def D(self):
+        return self._D
+
+    @property
     def A(self):
         return self._A_assembly()
 
@@ -53,5 +57,13 @@ class PoissonSolver:
         U = np.linalg.solve(A, b)
         return U
 
-    def change_D(self, D):
-        self._params['D'] = D
+    def update(self, params):
+        self._params = params
+        self._equation = params['equation']
+        # 1D domain should be: [a, b] with a > b
+        self._domain = params['domain']
+        # D is scalar for now
+        self._D = params['D']
+        self._nx = params['nx']
+        self._x = np.linspace(self._domain[0], self._domain[1], self._nx)
+
