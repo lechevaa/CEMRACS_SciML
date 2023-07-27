@@ -27,3 +27,6 @@ class DDMethod:
 
     def plot(self, ax):
         return self._method.plot(ax)
+
+    def fit(self, **args):
+        self._method.fit(**args)

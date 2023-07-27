@@ -13,18 +13,16 @@ class POD:
         self._params = params
         self._solver_params = params['solver']
         self._method_params = params['method']
+        self._svd_model = None
 
-        # POD params are the args of the TruncatedSVD from scikit learn
-        self._POD_params = params['method']['method_params']
-        # U is the collection of data
-        self._U = params['method']['U']
-        self._equation = params['solver']['equation']
-        self._svd_model = self.svd()
-
-    def svd(self):
-        svd_model = TruncatedSVD(**self._POD_params)
-        svd_model.fit(self._U)
+    @staticmethod
+    def svd(hyperparameters):
+        svd_model = TruncatedSVD(**hyperparameters)
         return svd_model
+
+    def fit(self, hyperparameters, U):
+        self._svd_model = self.svd(hyperparameters)
+        self._svd_model.fit(U)
 
     def galerkin(self, V: np.ndarray, D):
         # new D is contained in params dict
