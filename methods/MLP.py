@@ -1,5 +1,6 @@
 import copy
 
+import numpy as np
 import torch
 import torch.optim as optim
 
@@ -124,13 +125,27 @@ class MLP(torch.nn.Module):
 
         self.load_state_dict(best_model.state_dict())
 
-    def plot_losses(self, ax):
+    def plot(self, ax):
 
         ax.grid(True)
         ax.set_yscale('log')
         ax.set_xlabel('Epoch', fontsize=12, labelpad=15)
+        ax.set_xlabel('MSE Loss', fontsize=12, labelpad=15)
         ax.plot(self._losses['train'], label='Training loss', alpha=.7)
         ax.plot(self._losses['val'], label='Validation loss', alpha=.7)
 
         ax.legend()
+        return ax
+
+    def parity_plot(self, U, D, ax, label):
+        D = torch.Tensor(D).cpu()
+        U_pred = self(D).detach().cpu().numpy()
+        U_true = U.detach().cpu().numpy()
+        U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
+        U_true_norm = np.linalg.norm(U_true, 2, axis=1)
+        ax.scatter(U_true_norm, U_pred_norm, s=10, label=label)
+        ax.plot(U_true_norm, U_true_norm, 'r--', alpha=.5)
+
+        ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
+        ax.set_xlabel('$\|\mathbf{u}_D\|_2$', fontsize=18, labelpad=15)
         return ax

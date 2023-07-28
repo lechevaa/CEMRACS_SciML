@@ -28,5 +28,8 @@ class DDMethod:
     def plot(self, ax):
         return self._method.plot(ax)
 
+    def parity_plot(self, U, D, ax, label):
+        return self._method.parity_plot(U, D, ax, label)
+
     def fit(self, **args):
         self._method.fit(**args)

@@ -8,11 +8,9 @@ class DeepONet(torch.nn.Module):
         self.trunk = trunk
 
     def forward(self, u, y):
-        print('u ', u.shape, 'y ', y.shape)
         weights = self.branch(u)
         basis = self.trunk(y)
-        print('trunk ', basis.shape, 'branch ', weights.shape)
-        output = torch.matmul(weights, basis)
+        output = torch.matmul(weights, basis.T)
         return output
 
     def apply_method(self, u, y):
