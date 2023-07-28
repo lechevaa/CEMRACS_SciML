@@ -7,8 +7,11 @@ class DeepONet(torch.nn.Module):
         self.branch = branch
         self.trunk = trunk
 
-    def forward(self, u_, y_):
-        weights = self.branch(u_)
-        basis = self.trunk(y_)
+    def forward(self, u, y):
+        weights = self.branch(u)
+        basis = self.trunk(y)
         output = torch.matmul(weights, basis.T)
         return output
+
+    def apply_method(self, u, y):
+        return self.forward(u, y)

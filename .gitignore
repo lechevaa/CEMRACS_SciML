@@ -21,6 +21,7 @@ __pycache__
 *.index
 *.dat
 *.pdf
+.idea
 
 Yads/examples/
 Yads/yads/thesis_approaches/global_approach/hard_points_predictors/global_2D/visualization/

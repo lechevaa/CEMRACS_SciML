@@ -13,18 +13,16 @@ class POD:
         self._params = params
         self._solver_params = params['solver']
         self._method_params = params['method']
+        self._svd_model = None
 
-        # POD params are the args of the TruncatedSVD from scikit learn
-        self._POD_params = params['method']['method_params']
-        # U is the collection of data
-        self._U = params['method']['U']
-        self._equation = params['solver']['equation']
-        self._svd_model = self.svd()
-
-    def svd(self):
-        svd_model = TruncatedSVD(**self._POD_params)
-        svd_model.fit(self._U)
+    @staticmethod
+    def svd(hyperparameters):
+        svd_model = TruncatedSVD(**hyperparameters)
         return svd_model
+
+    def fit(self, hyperparameters, U):
+        self._svd_model = self.svd(hyperparameters)
+        self._svd_model.fit(U)
 
     def galerkin(self, V: np.ndarray, D):
         # new D is contained in params dict
@@ -56,3 +54,19 @@ class POD:
         ax.set_xlabel('Number of modes')
         ax.set_ylabel('Explained variance')
         ax.legend()
+
+    def parity_plot(self, U, D, ax, label):
+        D = D.detach().cpu().numpy()
+        U_pred = []
+        for d in D:
+            U_pred.append(self.apply_method(d))
+       
+        U_true = U.detach().cpu().numpy()
+        U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
+        U_true_norm = np.linalg.norm(U_true, 2, axis=1)
+        ax.scatter(U_true_norm, U_pred_norm, s=10, label=label)
+        ax.plot(U_true_norm, U_true_norm, 'r--', alpha=.5)
+
+        ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
+        ax.set_xlabel('$\|\mathbf{u}_D\|_2$', fontsize=18, labelpad=15)
+        return ax

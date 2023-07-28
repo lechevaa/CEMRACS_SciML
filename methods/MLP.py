@@ -1,4 +1,9 @@
+import copy
+
+import numpy as np
 import torch
+import torch.optim as optim
+
 from typing import Dict
 
 
@@ -7,6 +12,7 @@ class MLP(torch.nn.Module):
         self._params = params
         self._solver_params = params['solver']
         self._method_params = params['method']
+        self._losses = {'train': [], 'val': []}
 
         super().__init__()
 
@@ -38,8 +44,8 @@ class MLP(torch.nn.Module):
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.to(self.device)
 
-        print(self)
-        print('device :', self.device)
+        # print(self)
+        # print('device :', self.device)
 
     def create_net(self):
         layers = torch.nn.ModuleList()
@@ -75,8 +81,71 @@ class MLP(torch.nn.Module):
         return self._layers[-1](x)
 
     def apply_method(self, x):
+        x = torch.Tensor([x]).to('cpu')
         return self.forward(x)
 
-    def fit(self):
-        pass
+    def fit(self, hyperparameters: Dict, D_train, D_val, U_train, U_val):
+        D_train = torch.Tensor(D_train).to(self.device)
+        U_train = torch.Tensor(U_train).to(self.device)
 
+        D_val = torch.Tensor(D_val).to(self.device)
+        U_val = torch.Tensor(U_val).to(self.device)
+
+        epochs = hyperparameters['epochs']
+        lr = hyperparameters['lr']
+        optim_name = hyperparameters['optimizer']
+        optimizer = getattr(optim, optim_name)(self.parameters(), lr=lr)
+
+        def loss_fn(x, y=0):
+            return torch.square(y - x).mean()
+
+        best_model = copy.deepcopy(self)
+        for epoch in range(epochs):
+            self.train()
+            optimizer.zero_grad()
+            output = self(D_train)
+            loss = loss_fn(output, U_train)
+            loss.backward()
+            optimizer.step()
+
+            loss_train = loss.item()
+            # Validation of the model.
+            self.eval()
+            with torch.no_grad():
+                output = self(D_val)
+                loss = loss_fn(output, U_val)
+
+            loss_val = loss.item()
+            self._losses['train'].append(loss_train)
+            self._losses['val'].append(loss_val)
+
+            # check if new best model
+            if loss_val == min(self._losses['val']):
+                best_model = copy.deepcopy(self)
+
+        self.load_state_dict(best_model.state_dict())
+
+    def plot(self, ax):
+
+        ax.grid(True)
+        ax.set_yscale('log')
+        ax.set_xlabel('Epoch', fontsize=12, labelpad=15)
+        ax.set_xlabel('MSE Loss', fontsize=12, labelpad=15)
+        ax.plot(self._losses['train'], label='Training loss', alpha=.7)
+        ax.plot(self._losses['val'], label='Validation loss', alpha=.7)
+
+        ax.legend()
+        return ax
+
+    def parity_plot(self, U, D, ax, label):
+        D = torch.Tensor(D).cpu()
+        U_pred = self(D).detach().cpu().numpy()
+        U_true = U.detach().cpu().numpy()
+        U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
+        U_true_norm = np.linalg.norm(U_true, 2, axis=1)
+        ax.scatter(U_true_norm, U_pred_norm, s=10, label=label)
+        ax.plot(U_true_norm, U_true_norm, 'r--', alpha=.5)
+
+        ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
+        ax.set_xlabel('$\|\mathbf{u}_D\|_2$', fontsize=18, labelpad=15)
+        return ax
