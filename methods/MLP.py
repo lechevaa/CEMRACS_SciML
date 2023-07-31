@@ -3,7 +3,7 @@ import copy
 import numpy as np
 import torch
 import torch.optim as optim
-
+from methods.methodsDataset.MLPDataset import MLPDataset
 from typing import Dict
 
 
@@ -85,11 +85,19 @@ class MLP(torch.nn.Module):
         return self.forward(x)
 
     def fit(self, hyperparameters: Dict, D_train, D_val, U_train, U_val):
-        D_train = torch.Tensor(D_train).to(self.device)
-        U_train = torch.Tensor(U_train).to(self.device)
+        D_train = torch.Tensor(D_train)
+        U_train = torch.Tensor(U_train)
 
-        D_val = torch.Tensor(D_val).to(self.device)
-        U_val = torch.Tensor(U_val).to(self.device)
+        D_val = torch.Tensor(D_val)
+        U_val = torch.Tensor(U_val)
+
+        trainDataset = MLPDataset(x=D_train, y=U_train)
+        valDataset = MLPDataset(x=D_val, y=U_val)
+
+        batch_size = hyperparameters['batch_size']
+
+        trainLoader = torch.utils.data.DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
+        valLoader = torch.utils.data.DataLoader(valDataset, batch_size=batch_size, shuffle=False)
 
         epochs = hyperparameters['epochs']
         lr = hyperparameters['lr']
@@ -102,20 +110,33 @@ class MLP(torch.nn.Module):
         best_model = copy.deepcopy(self)
         for epoch in range(epochs):
             self.train()
-            optimizer.zero_grad()
-            output = self(D_train)
-            loss = loss_fn(output, U_train)
-            loss.backward()
-            optimizer.step()
+            loss_train = 0.
 
-            loss_train = loss.item()
+            for i, data in enumerate(trainLoader):
+                inputs, label = data
+                inputs = inputs.to(self.device)
+                label = label.to(self.device)
+                optimizer.zero_grad()
+                output = self(inputs)
+                loss = loss_fn(output, label)
+                loss.backward()
+                optimizer.step()
+                loss_train += loss.item()
+            loss_train /= (i+1)
+
             # Validation of the model.
+            loss_val = 0.
             self.eval()
             with torch.no_grad():
-                output = self(D_val)
-                loss = loss_fn(output, U_val)
+                for i, data in enumerate(valLoader):
+                    inputs, label = data
+                    inputs = inputs.to(self.device)
+                    label = label.to(self.device)
+                    optimizer.zero_grad()
+                    output = self(inputs)
+                    loss_val += loss_fn(output, label).item()
 
-            loss_val = loss.item()
+            loss_val /= (i+1)
             self._losses['train'].append(loss_train)
             self._losses['val'].append(loss_val)
 

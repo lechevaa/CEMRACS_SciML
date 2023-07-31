@@ -21,6 +21,8 @@ class DDMethod:
             method = POD(params=self._params)
         elif self._method_name == 'MLP':
             method = MLP(params=self._params)
+        elif self._method_name == 'DEEPONET':
+            method = DeepONet(params=self._params)
         else:
             method = None
         return method
@@ -32,4 +34,6 @@ class DDMethod:
         return self._method.parity_plot(U, D, ax, label)
 
     def fit(self, **args):
+        print(f'Fitting {self._method_name}')
         self._method.fit(**args)
+        print(f'{self._method_name} fitted')
