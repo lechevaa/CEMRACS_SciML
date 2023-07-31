@@ -24,7 +24,7 @@ method = DDMethod(params=params_method)
 new_D = 20
 U_POD = method.apply_method(new_D)
 solver = Solver(params=params_solver)
-solver.change_D(D=new_D)
+solver.change_D(new_D=new_D)
 U_FD = solver.solve()
 plt.plot(solver.x, U_POD, label='POD')
 plt.plot(solver.x, U_FD, '--', label='FD')
