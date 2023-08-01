@@ -85,6 +85,9 @@ class MLP(torch.nn.Module):
         return self.forward(x)
 
     def fit(self, hyperparameters: Dict, D_train, D_val, U_train, U_val):
+        torch.manual_seed(self._method_params['seed'])
+        np.random.seed(self._method_params['seed'])
+
         D_train = torch.Tensor(D_train)
         U_train = torch.Tensor(U_train)
 
@@ -152,8 +155,8 @@ class MLP(torch.nn.Module):
         ax.set_yscale('log')
         ax.set_xlabel('Epoch', fontsize=12, labelpad=15)
         ax.set_xlabel('MSE Loss', fontsize=12, labelpad=15)
-        ax.plot(self._losses['train'], label='Training loss', alpha=.7)
-        ax.plot(self._losses['val'], label='Validation loss', alpha=.7)
+        ax.plot(self._losses['train'], label=f'Training loss: {min(self._losses["train"]):.2f}', alpha=.7)
+        ax.plot(self._losses['val'], label=f'Validation loss: {min(self._losses["val"]):.2f}', alpha=.7)
 
         ax.legend()
         return ax

@@ -31,7 +31,7 @@ class DeepONet(torch.nn.Module):
     def apply_method(self, u):
         domain = self._solver_params['domain']
         nx = self._solver_params['nx']
-        u = torch.Tensor(u).view(-1, 1).to('cpu')
+        u = torch.Tensor([u]).view(-1, 1).to('cpu')
         x_domain = torch.linspace(domain[0], domain[1], nx).view(-1, 1).to('cpu')
         u_x = []
         for x in x_domain:
@@ -39,6 +39,9 @@ class DeepONet(torch.nn.Module):
         return np.array(u_x)
 
     def fit(self, hyperparameters: Dict, DX_train, DX_val, U_train, U_val):
+        torch.manual_seed(self._branch_params['seed'])
+        np.random.seed(self._branch_params['seed'])
+
         DX_train = torch.Tensor(DX_train)
         U_train = torch.Tensor(U_train)
 
@@ -68,12 +71,12 @@ class DeepONet(torch.nn.Module):
             loss_train = 0.
 
             for i, data in enumerate(trainLoader):
-                xd, u = data
-                xd, u = xd.to(device), u.to(device)
+                dx, u = data
+                dx, u = dx.to(device), u.to(device)
 
                 optimizer.zero_grad()
 
-                output = self(xd[:, 0:1], xd[:, 1:2])
+                output = self(dx[:, 0:1], dx[:, 1:2])
 
                 loss = loss_fn(output, u)
 
@@ -87,9 +90,9 @@ class DeepONet(torch.nn.Module):
             loss_val = 0.
             with torch.no_grad():
                 for i, data in enumerate(valLoader):
-                    xd, u = data
-                    xd, u = xd.to(device), u.to(device)
-                    output = self(xd[:, 0:1], xd[:, 1:2])
+                    dx, u = data
+                    dx, u = dx.to(device), u.to(device)
+                    output = self(dx[:, 0:1], dx[:, 1:2])
                     loss_val += loss_fn(output, u).item()
 
             loss_val /= (i + 1)
@@ -109,22 +112,23 @@ class DeepONet(torch.nn.Module):
         ax.set_yscale('log')
         ax.set_xlabel('Epoch', fontsize=12, labelpad=15)
         ax.set_xlabel('MSE Loss', fontsize=12, labelpad=15)
-        ax.plot(self._losses['train'], label='Training loss', alpha=.7)
-        ax.plot(self._losses['val'], label='Validation loss', alpha=.7)
+        ax.plot(self._losses['train'], label=f'Training loss: {min(self._losses["train"]):.2}', alpha=.7)
+        ax.plot(self._losses['val'], label=f'Validation loss: {min(self._losses["val"]):.2}', alpha=.7)
 
         ax.legend()
         return ax
 
-    def parity_plot(self, U, XD, ax, label):
-        XD = torch.Tensor(XD).cpu()
-        x = XD[:, 0:1]
-        d = XD[:, 1:2]
-        U_pred = self(u=d, y=x).detach().cpu().numpy()
-        U_true = U.detach().cpu().numpy()
-        U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
-        U_true_norm = np.linalg.norm(U_true, 2, axis=1)
-        ax.scatter(U_true_norm, U_pred_norm, s=10, label=label)
-        ax.plot(U_true_norm, U_true_norm, 'r--', alpha=.5)
+    def parity_plot(self, U, DX, ax, label):
+
+        U_pred_norms = []
+        nx = self._solver_params['nx']
+        U = U.detach().cpu().numpy()
+        U_true_norms = [np.linalg.norm(U[nx*i: nx*(i+1)], 2) for i in range(U.shape[0]//nx)]
+        for d in np.unique(DX[:, 0:1]):
+            U_pred_temp = self.apply_method(d)
+            U_pred_norms.append(np.linalg.norm(U_pred_temp, 2))
+        ax.scatter(U_true_norms, U_pred_norms, s=10, label=label)
+        ax.plot(U_true_norms, U_true_norms, 'r--', alpha=.5)
 
         ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
         ax.set_xlabel('$\|\mathbf{u}_D\|_2$', fontsize=18, labelpad=15)

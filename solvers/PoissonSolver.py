@@ -1,4 +1,5 @@
 import numpy as np
+import scipy
 
 from typing import Dict
 
@@ -41,7 +42,15 @@ class PoissonSolver:
 
     def _A_assembly(self):
         nx = self._nx
-        A_mat = -2 * np.eye(nx) + np.eye(nx, k=-1) + np.eye(nx, k=1)
+        Ones = np.ones(nx - 2)
+
+        d = np.hstack([1, -2 * Ones, 1])
+        ds = np.hstack([0, Ones])
+        di = np.hstack([Ones, 0])
+
+        A_mat = scipy.sparse.diags([di, d, ds], [-1, 0, 1])
+
+        # A_mat = -2 * np.eye(nx) + np.eye(nx, k=-1) + np.eye(nx, k=1)
         return A_mat
 
     def _F(self):
@@ -49,12 +58,13 @@ class PoissonSolver:
         nx = self._nx
         dx = (b - a) / (nx - 1)
         F = - (dx ** 2 / self._D) * np.ones(nx)
+        F[0], F[-1] = 0., 0.
         return F
 
     def solve(self) -> np.ndarray:
-        A = self._A_assembly()
+        A = self._A_assembly().tocsc()
         b = self._F()
-        U = np.linalg.solve(A, b)
+        U = scipy.sparse.linalg.spsolve(A, b)
         return U
 
     def update(self, params):

@@ -1,4 +1,7 @@
 from typing import Dict
+
+import torch
+
 from methods.POD import POD
 from methods.MLP import MLP
 from methods.DeepONet import DeepONet
@@ -37,3 +40,12 @@ class DDMethod:
         print(f'Fitting {self._method_name}')
         self._method.fit(**args)
         print(f'{self._method_name} fitted')
+
+    def state_dict(self):
+        if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO']:
+            return self._method.state_dict()
+
+    def load_state_dict(self, path: str):
+        if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO']:
+            self._method.load_state_dict(torch.load(path))
+
