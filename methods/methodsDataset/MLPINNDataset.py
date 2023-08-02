@@ -1,7 +1,7 @@
 from torch.utils.data import Dataset
 
 
-class DeepONetDataset(Dataset):
+class MLPINNDataset(Dataset):
     def __init__(self, x, y):
 
         self.x = x.float()
@@ -12,3 +12,4 @@ class DeepONetDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.x[idx], self.y[idx]
+
