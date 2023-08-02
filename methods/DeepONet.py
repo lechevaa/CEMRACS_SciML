@@ -116,7 +116,7 @@ class DeepONet(torch.nn.Module):
         ax.plot(self._losses['val'], label=f'Validation loss: {min(self._losses["val"]):.2}', alpha=.7)
 
         ax.legend()
-        return ax
+        return
 
     def parity_plot(self, U, DX, ax, label):
 

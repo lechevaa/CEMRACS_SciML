@@ -5,6 +5,7 @@ import torch
 from methods.POD import POD
 from methods.MLP import MLP
 from methods.DeepONet import DeepONet
+from methods.PINN import PINN
 
 
 class DDMethod:
@@ -26,6 +27,10 @@ class DDMethod:
             method = MLP(params=self._params)
         elif self._method_name == 'DEEPONET':
             method = DeepONet(params=self._params)
+        elif self._method_name == 'PINN':
+            method = PINN(params=self._params)
+        elif self._method_name == 'MLPINN':
+            method = PINN(params=self._params)
         else:
             method = None
         return method
@@ -38,7 +43,11 @@ class DDMethod:
 
     def fit(self, **args):
         print(f'Fitting {self._method_name}')
-        self._method.fit(**args)
+        if self._method_name in ['POD', 'MLP', 'PINN', 'DEEPONET', 'FNO']:
+            self._method.fit(**args)
+
+        elif self._method_name in ['MLPINN']:
+            self._method.fit_supervised(**args)
         print(f'{self._method_name} fitted')
 
     def state_dict(self):
