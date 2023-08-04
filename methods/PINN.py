@@ -165,7 +165,9 @@ class PINN(torch.nn.Module):
         def MSE(pred, true=0):
             return torch.square(true - pred).mean()
 
-        for epoch in range(epochs):
+        loading_bar = tqdm(range(epochs + 1), colour='blue')
+        for epoch in loading_bar:
+            loading_bar.set_description('[epoch: %d ' % epoch)
             self.train()
             lb_train, lr_train, l_dd_train = 0., 0., 0.
             for i, data in enumerate(trainLoader):

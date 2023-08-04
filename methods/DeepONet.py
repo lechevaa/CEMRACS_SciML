@@ -3,6 +3,7 @@ import copy
 import numpy as np
 import torch
 import torch.optim as optim
+from tqdm import tqdm
 
 from typing import Dict
 
@@ -60,30 +61,35 @@ class DeepONet(torch.nn.Module):
         trainLoader = torch.utils.data.DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
         valLoader = torch.utils.data.DataLoader(valDataset, batch_size=batch_size, shuffle=False)
 
+        del DX_val, U_val
+        del DX_train, U_train
+        del trainDataset, valDataset
+
         epochs = hyperparameters['epochs']
         device = hyperparameters['device']
         lr = hyperparameters['lr']
         optim_name = hyperparameters['optimizer']
         optimizer = getattr(optim, optim_name)(self.parameters(), lr=lr)
 
-        def loss_fn(x, y=0):
-            return torch.square(y - x).mean()
+        def loss_fn(pred, y=0):
+            return torch.square(y - pred).mean()
 
-        best_model = copy.deepcopy(self)
-        for epoch in range(epochs):
+        loading_bar = tqdm(range(epochs + 1), colour='blue')
+
+        best_model = copy.deepcopy(self.state_dict())
+        for epoch in loading_bar:
+            loading_bar.set_description('[epoch: %d ' % epoch)
             self.train()
             loss_train = 0.
 
             for i, data in enumerate(trainLoader):
                 dx, u = data
-                dx, u = dx.to(device), u.to(device)
-
+                u = u.to(device)
+                d, x = dx[:, 0:1], dx[:, 1:2]
+                d, x = d.to(device), x.to(device)
                 optimizer.zero_grad()
-
-                output = self(dx[:, 0:1], dx[:, 1:2])
-
+                output = self(d, x)
                 loss = loss_fn(output, u)
-
                 loss.backward()
                 optimizer.step()
                 loss_train += loss.item()
@@ -95,9 +101,12 @@ class DeepONet(torch.nn.Module):
             with torch.no_grad():
                 for i, data in enumerate(valLoader):
                     dx, u = data
-                    dx, u = dx.to(device), u.to(device)
-                    output = self(dx[:, 0:1], dx[:, 1:2])
-                    loss_val += loss_fn(output, u).item()
+                    u = u.to(device)
+                    d, x = dx[:, 0:1], dx[:, 1:2]
+                    d, x = d.to(device), x.to(device)
+                    output = self(d, x)
+                    loss = loss_fn(output, u)
+                    loss_val += loss.item()
 
             loss_val /= (i + 1)
 
@@ -106,9 +115,9 @@ class DeepONet(torch.nn.Module):
 
             # check if new best model
             if loss_val == min(self._losses['val']):
-                best_model = copy.deepcopy(self)
+                best_model = copy.deepcopy(self.state_dict())
 
-        self.load_state_dict(best_model.state_dict())
+        self.load_state_dict(best_model)
 
     def plot(self, ax):
 
@@ -118,7 +127,8 @@ class DeepONet(torch.nn.Module):
         ax.set_ylabel('Loss', fontsize=12, labelpad=15)
         ax.plot(self._losses['train'], label=f'Training loss: {min(self._losses["train"]):.2e}', alpha=.7)
         ax.plot(self._losses['val'], label=f'Validation loss: {min(self._losses["val"]):.2e}', alpha=.7)
-
+        ax.tick_params(axis="y", direction="in", which="both")
+        ax.tick_params(axis="x", direction="in")
         ax.legend()
         return
 
