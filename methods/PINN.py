@@ -7,6 +7,7 @@ from methods.methodsDataset.PINNDataset import PINNDataset
 from methods.methodsDataset.MLPINNDataset import MLPINNDataset
 from typing import Dict
 from methods.MLP import MLP
+from tqdm import tqdm
 
 
 class PINN(torch.nn.Module):
@@ -37,7 +38,10 @@ class PINN(torch.nn.Module):
         def MSE(pred, true=0):
             return torch.square(true - pred).mean()
 
-        u = self(torch.cat([D, x], dim=1))
+        if not x.requires_grad:
+            x.requires_grad = True
+
+        u = self._model(torch.cat([D, x], dim=1))
 
         u_x = torch.autograd.grad(u, x, torch.ones_like(u),
                                   create_graph=True, retain_graph=True, allow_unused=True)[0]
@@ -48,8 +52,8 @@ class PINN(torch.nn.Module):
 
         x0 = torch.zeros_like(D)
         x1 = torch.ones_like(D)
-        u0 = self(torch.cat([D, x0], dim=1)) - 0.
-        u1 = self(torch.cat([D, x1], dim=1)) - 0.
+        u0 = self._model(torch.cat([D, x0], dim=1)) - 0.
+        u1 = self._model(torch.cat([D, x1], dim=1)) - 0.
 
         return MSE(u0) + MSE(u1), MSE(res)
 
@@ -60,9 +64,6 @@ class PINN(torch.nn.Module):
         DX_train = torch.Tensor(DX_train)
         DX_val = torch.Tensor(DX_val)
 
-        DX_train.requires_grad = True
-        DX_val.requires_grad = True
-
         trainDataset = PINNDataset(x=DX_train)
         valDataset = PINNDataset(x=DX_val)
 
@@ -71,22 +72,29 @@ class PINN(torch.nn.Module):
         trainLoader = torch.utils.data.DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
         valLoader = torch.utils.data.DataLoader(valDataset, batch_size=batch_size, shuffle=False)
 
+        del trainDataset, valDataset
+        del DX_train, DX_val
+
         epochs = hyperparameters['epochs']
         device = self._method_params['device']
         lr = hyperparameters['lr']
         optim_name = hyperparameters['optimizer']
         optimizer = getattr(optim, optim_name)(self.parameters(), lr=lr)
 
-        best_model = copy.deepcopy(self)
+        loading_bar = tqdm(range(epochs + 1), colour='blue')
+
+        best_model = copy.deepcopy(self._model.state_dict())
         i = None
-        for epoch in range(epochs):
+        for epoch in loading_bar:
+            loading_bar.set_description('[epoch: %d ' % epoch)
             self.train()
             lb_train, lr_train = 0., 0.
             for i, dx in enumerate(trainLoader):
-                dx = dx.to(device)
+                d, x = dx[:, 0:1], dx[:, 1:2]
+                d, x = d.to(device), d.to(device)
 
                 optimizer.zero_grad()
-                lb, lr = self.loss(dx[:, 0:1], dx[:, 1:2])
+                lb, lr = self.loss(d, x)
                 l_tot = lb + lr
                 l_tot.backward()
 
@@ -102,9 +110,9 @@ class PINN(torch.nn.Module):
             lr_val, lb_val = 0., 0.
 
             for i, dx in enumerate(valLoader):
-                dx = dx.to(device)
-                # dx.requires_grad = True
-                lb, lr = self.loss(dx[:, 0:1], dx[:, 1:2])
+                d, x = dx[:, 0:1], dx[:, 1:2]
+                d, x = d.to(device), d.to(device)
+                lb, lr = self.loss(d, x)
                 lb_val += lb.item()
                 lr_val += lr.item()
 
@@ -117,9 +125,9 @@ class PINN(torch.nn.Module):
             # check if new best model
             val_tot = [sum(x) for x in zip(self._losses['val']['ic_bc'], self._losses['val']['residual'])]
             if lr_val + lb_val == min(val_tot):
-                best_model = copy.deepcopy(self._model)
+                best_model = copy.deepcopy(self._model.state_dict())
 
-        self._model.load_state_dict(best_model.state_dict())
+        self._model.load_state_dict(best_model)
 
     def fit_supervised(self, hyperparameters: Dict, DX_train, DX_val, U_train, U_val):
         self._losses['train']['data_driven'] = []
