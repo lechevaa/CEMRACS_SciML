@@ -22,6 +22,10 @@ class DeepONet(torch.nn.Module):
         self.branch = MLP(params={'solver': params['solver'], 'method':  params['method']['branch']})
         self.trunk = MLP(params={'solver': params['solver'], 'method':  params['method']['trunk']})
 
+    @property
+    def loss_dict(self):
+        return self._losses
+
     def forward(self, u, y):
         weights = self.branch(u)
         basis = self.trunk(y)
@@ -111,9 +115,9 @@ class DeepONet(torch.nn.Module):
         ax.grid(True)
         ax.set_yscale('log')
         ax.set_xlabel('Epoch', fontsize=12, labelpad=15)
-        ax.set_xlabel('MSE Loss', fontsize=12, labelpad=15)
-        ax.plot(self._losses['train'], label=f'Training loss: {min(self._losses["train"]):.2}', alpha=.7)
-        ax.plot(self._losses['val'], label=f'Validation loss: {min(self._losses["val"]):.2}', alpha=.7)
+        ax.set_ylabel('Loss', fontsize=12, labelpad=15)
+        ax.plot(self._losses['train'], label=f'Training loss: {min(self._losses["train"]):.2e}', alpha=.7)
+        ax.plot(self._losses['val'], label=f'Validation loss: {min(self._losses["val"]):.2e}', alpha=.7)
 
         ax.legend()
         return
@@ -133,3 +137,6 @@ class DeepONet(torch.nn.Module):
         ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
         ax.set_xlabel('$\|\mathbf{u}_D\|_2$', fontsize=18, labelpad=15)
         return ax
+
+    def load_loss_dict(self, loss_dict: Dict):
+        self._losses = loss_dict

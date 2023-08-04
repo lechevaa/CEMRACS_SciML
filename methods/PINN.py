@@ -29,6 +29,10 @@ class PINN(torch.nn.Module):
         u_x = self.forward(torch.cat([D, x_domain], dim=1)).detach().cpu().numpy()
         return u_x
 
+    @property
+    def loss_dict(self):
+        return self._losses
+
     def loss(self, D, x):
         def MSE(pred, true=0):
             return torch.square(true - pred).mean()
@@ -212,25 +216,25 @@ class PINN(torch.nn.Module):
         ax.grid(True)
         ax.set_yscale('log')
         ax.set_xlabel('Epoch', fontsize=12, labelpad=15)
-        ax.set_xlabel('MSE Loss', fontsize=12, labelpad=15)
-        ax.plot(self._losses['train']['residual'],
-                label=f'Train residual loss: {min(self._losses["train"]["residual"]):.2}', alpha=.7)
-        ax.plot(self._losses['val']['residual'],
-                label=f'Val residual loss: {min(self._losses["val"]["residual"]):.2}', alpha=.7)
-        ax.plot(self._losses['train']['ic_bc'],
-                label=f'Train boundary conditions loss: {min(self._losses["train"]["ic_bc"]):.2}', alpha=.7)
-        ax.plot(self._losses['val']['ic_bc'],
-                label=f'Val boundary conditions loss: {min(self._losses["val"]["ic_bc"]):.2}', alpha=.7)
-
+        ax.set_ylabel('Loss', fontsize=12, labelpad=15)
+        # ax.plot(self._losses['train']['residual'],
+        #         label=f'Train residual loss: {min(self._losses["train"]["residual"]):.2}', alpha=.7)
+        # ax.plot(self._losses['val']['residual'],
+        #         label=f'Val residual loss: {min(self._losses["val"]["residual"]):.2}', alpha=.7)
+        # ax.plot(self._losses['train']['ic_bc'],
+        #         label=f'Train boundary conditions loss: {min(self._losses["train"]["ic_bc"]):.2}', alpha=.7)
+        # ax.plot(self._losses['val']['ic_bc'],
+        #         label=f'Val boundary conditions loss: {min(self._losses["val"]["ic_bc"]):.2}', alpha=.7)
+        #
         train_tot = [sum(x) for x in zip(self._losses['train']['ic_bc'], self._losses['train']['residual'])]
         ax.plot(train_tot,
                 label=f'Train total loss: '
-                      f'{min(train_tot):.2}',
+                      f'{min(train_tot):.2e}',
                 alpha=.7)
         val_tot = [sum(x) for x in zip(self._losses['val']['ic_bc'], self._losses['val']['residual'])]
         ax.plot(val_tot,
                 label=f'Val total loss: '
-                      f'{min(val_tot):.2}',
+                      f'{min(val_tot):.2e}',
                 alpha=.7)
         ax.legend()
         return
@@ -250,3 +254,6 @@ class PINN(torch.nn.Module):
         ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
         ax.set_xlabel('$\|\mathbf{u}_D\|_2$', fontsize=18, labelpad=15)
         return ax
+
+    def load_loss_dict(self, loss_dict: Dict):
+        self._losses = loss_dict
