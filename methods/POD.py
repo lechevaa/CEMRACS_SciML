@@ -43,16 +43,23 @@ class POD:
         return U_hat
 
     def plot(self, ax):
+        ax.grid(True)
+        ax.set_axisbelow(True)
+
         n_components = self._svd_model.components_.shape[0]
         x = np.arange(n_components) + 1
         evr = self._svd_model.explained_variance_ratio_
-        ax.hist(evr, bins=x, alpha=0.5, color="blue", align='left', label='Explained variance')
-        ax.plot(x, evr.cumsum(), c='r', marker='o', lw=2, label='cumulative explained variance sum')
-        ax.set_xlim([0., x[-1] + 1.5])
-        ax.set_ylim([0., 1.2])
+        # ax.hist(evr, bins=x, alpha=0.5, color="blue", align='left', )
+        x = np.insert(x, 0, 0)
+        evr = np.insert(evr, 0, 0)
+        ax.plot(x, evr.cumsum(), c='blue', marker='o', lw=2, label='Cumulative explained variance', zorder=1)
+        ax.scatter(x, evr, color="red", alpha=0.8, label='Explained variance', zorder=2)
+        ax.set_xlim([-0.5, x[-1] + 1.5])
+        ax.set_ylim([-0.1, 1.1])
         ax.set_xticks(x)
         ax.set_xlabel('Number of modes')
         ax.set_ylabel('Explained variance')
+
         ax.legend()
 
     def parity_plot(self, U, D, ax, label):

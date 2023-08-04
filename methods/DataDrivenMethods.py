@@ -50,11 +50,19 @@ class DDMethod:
             self._method.fit_supervised(**args)
         print(f'{self._method_name} fitted')
 
+    @property
     def state_dict(self):
-        if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO']:
+        if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO', 'MLPINN']:
             return self._method.state_dict()
 
     def load_state_dict(self, path: str):
-        if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO']:
-            self._method.load_state_dict(torch.load(path))
+        if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO', 'MLPINN']:
+            checkpoint = torch.load(path)
+            self._method.load_loss_dict(checkpoint['loss_dict'])
+            self._method.load_state_dict(checkpoint['model_state_dict'])
 
+    def loss_dict(self):
+        if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO', 'MLPINN']:
+            return self._method.loss_dict
+        else:
+            return
