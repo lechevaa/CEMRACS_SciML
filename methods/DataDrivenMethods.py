@@ -60,7 +60,7 @@ class DDMethod:
 
     def load_state_dict(self, path: str):
         if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO', 'MLPINN']:
-            checkpoint = torch.load(path)
+            checkpoint = torch.load(path, map_location=torch.device('cpu'))
             self._method.load_loss_dict(checkpoint['loss_dict'])
             self._method.load_state_dict(checkpoint['model_state_dict'])
 
