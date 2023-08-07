@@ -142,9 +142,6 @@ class PINN(torch.nn.Module):
         U_train = torch.Tensor(U_train)
         U_val = torch.Tensor(U_val)
 
-        DX_train.requires_grad = True
-        DX_val.requires_grad = True
-
         trainDataset = MLPINNDataset(x=DX_train, y=U_train)
         valDataset = MLPINNDataset(x=DX_val, y=U_val)
 
@@ -153,13 +150,16 @@ class PINN(torch.nn.Module):
         trainLoader = torch.utils.data.DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
         valLoader = torch.utils.data.DataLoader(valDataset, batch_size=batch_size, shuffle=False)
 
+        del trainDataset, valDataset
+        del DX_train, DX_val
+
         epochs = hyperparameters['epochs']
         device = self._method_params['device']
         lr = hyperparameters['lr']
         optim_name = hyperparameters['optimizer']
         optimizer = getattr(optim, optim_name)(self.parameters(), lr=lr)
 
-        best_model = copy.deepcopy(self)
+        best_model = copy.deepcopy(self._model.state_dict())
         i = None
 
         def MSE(pred, true=0):
@@ -172,12 +172,13 @@ class PINN(torch.nn.Module):
             lb_train, lr_train, l_dd_train = 0., 0., 0.
             for i, data in enumerate(trainLoader):
                 dx, label = data
-                dx = dx.to(device)
+                d, x = dx[:, 0:1], dx[:, 1:2]
+                d, x = d.to(device), x.to(device)
                 label = label.to(device)
 
                 optimizer.zero_grad()
                 l_dd = MSE(pred=self(dx), true=label)
-                lb, lr = self.loss(dx[:, 0:1], dx[:, 1:2])
+                lb, lr = self.loss(d, x)
                 l_tot = lb + lr + l_dd
                 l_tot.backward()
 
@@ -197,11 +198,12 @@ class PINN(torch.nn.Module):
 
             for i, data in enumerate(valLoader):
                 dx, label = data
-                dx = dx.to(device)
+                d, x = dx[:, 0:1], dx[:, 1:2]
+                d, x = d.to(device), x.to(device)
                 label = label.to(device)
                 # dx.requires_grad = True
                 l_dd = MSE(pred=self(dx), true=label)
-                lb, lr = self.loss(dx[:, 0:1], dx[:, 1:2])
+                lb, lr = self.loss(d, x)
                 lb_val += lb.item()
                 lr_val += lr.item()
                 l_dd_val += l_dd.item()
@@ -218,9 +220,9 @@ class PINN(torch.nn.Module):
                                            self._losses['val']['residual'],
                                            self._losses['val']['data_driven'])]
             if lr_val + lb_val + l_dd_val == min(val_tot):
-                best_model = copy.deepcopy(self._model)
+                best_model = copy.deepcopy(self._model.state_dict())
 
-        self._model.load_state_dict(best_model.state_dict())
+        self._model.load_state_dict(best_model)
 
     def plot(self, ax):
         ax.grid(True)
