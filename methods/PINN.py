@@ -91,7 +91,7 @@ class PINN(torch.nn.Module):
             lb_train, lr_train = 0., 0.
             for i, dx in enumerate(trainLoader):
                 d, x = dx[:, 0:1], dx[:, 1:2]
-                d, x = d.to(device), d.to(device)
+                d, x = d.to(device), x.to(device)
 
                 optimizer.zero_grad()
                 lb, lr = self.loss(d, x)
@@ -111,7 +111,7 @@ class PINN(torch.nn.Module):
 
             for i, dx in enumerate(valLoader):
                 d, x = dx[:, 0:1], dx[:, 1:2]
-                d, x = d.to(device), d.to(device)
+                d, x = d.to(device), x.to(device)
                 lb, lr = self.loss(d, x)
                 lb_val += lb.item()
                 lr_val += lr.item()
