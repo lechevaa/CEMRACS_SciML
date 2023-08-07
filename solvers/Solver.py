@@ -30,6 +30,10 @@ class Solver:
         return self._solver.x
 
     @property
+    def fx(self) -> np.ndarray:
+        return self._solver.fx
+
+    @property
     def A(self) -> np.ndarray:
         return self._solver.A
 
