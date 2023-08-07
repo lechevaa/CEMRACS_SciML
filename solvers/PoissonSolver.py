@@ -10,10 +10,12 @@ class PoissonSolver:
         self._equation = params['equation']
         # 1D domain should be: [a, b] with a > b
         self._domain = params['domain']
+        self._nx = params['nx']
+        self._source_term = params['source term']
         # D is scalar for now
         self._D = params['D']
-        self._nx = params['nx']
         self._x = np.linspace(self._domain[0], self._domain[1], self._nx)
+        self._fx = self._source_term(self._x)
         assert True
 
     @property
@@ -27,6 +29,10 @@ class PoissonSolver:
     @property
     def x(self):
         return self._x
+
+    @property
+    def fx(self):
+        return self._fx
 
     @property
     def D(self):
@@ -57,7 +63,7 @@ class PoissonSolver:
         a, b = self._domain
         nx = self._nx
         dx = (b - a) / (nx - 1)
-        F = - (dx ** 2 / self._D) * np.ones(nx)
+        F = - (dx ** 2 / self._D) * self._fx
         F[0], F[-1] = 0., 0.
         return F
 
