@@ -3,6 +3,8 @@ import copy
 import numpy as np
 import torch
 import torch.optim as optim
+from tqdm import tqdm
+
 from methods.methodsDataset.MLPDataset import MLPDataset
 from typing import Dict
 
@@ -106,6 +108,9 @@ class MLP(torch.nn.Module):
         trainLoader = torch.utils.data.DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
         valLoader = torch.utils.data.DataLoader(valDataset, batch_size=batch_size, shuffle=False)
 
+        del trainDataset, valDataset
+        del D_val, U_val
+
         epochs = hyperparameters['epochs']
         lr = hyperparameters['lr']
         optim_name = hyperparameters['optimizer']
@@ -114,8 +119,10 @@ class MLP(torch.nn.Module):
         def loss_fn(x, y=0):
             return torch.square(y - x).mean()
 
-        best_model = copy.deepcopy(self)
-        for epoch in range(epochs):
+        loading_bar = tqdm(range(epochs + 1), colour='blue')
+        best_model = copy.deepcopy(self.state_dict())
+        for epoch in loading_bar:
+            loading_bar.set_description('[epoch: %d ' % epoch)
             self.train()
             loss_train = 0.
 
@@ -149,9 +156,9 @@ class MLP(torch.nn.Module):
 
             # check if new best model
             if loss_val == min(self._losses['val']):
-                best_model = copy.deepcopy(self)
+                best_model = copy.deepcopy(self.state_dict())
 
-        self.load_state_dict(best_model.state_dict())
+        self.load_state_dict(best_model)
 
     def plot(self, ax):
 
