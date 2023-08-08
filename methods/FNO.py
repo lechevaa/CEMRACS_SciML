@@ -146,7 +146,11 @@ class FNO1d(torch.nn.Module):
         x = torch.Tensor(x).view(-1, 1)
         x = x.repeat(1, nx).unsqueeze(-1).cpu()
 
-        x_normalizer, y_normalizer = self._normalizers
+        normalizers = self._normalizers
+        if normalizers:
+            x_normalizer, y_normalizer = self._normalizers
+        else:
+            x_normalizer, y_normalizer = None, None
         if x_normalizer:
             x = x_normalizer.encode(x)
         pred = self.forward(x)
@@ -245,7 +249,7 @@ class FNO1d(torch.nn.Module):
         ax.legend()
         return ax
 
-    def parity_plot(self, U, D, ax, label):
+    def parity_plot(self, U, D, ax, label, color):
         xy_normalizer = self._normalizers
         nx = U.shape[1]
         D = torch.Tensor(D).view(-1, 1)
@@ -266,7 +270,7 @@ class FNO1d(torch.nn.Module):
         U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
         U_true_norm = np.linalg.norm(U_true, 2, axis=1)
 
-        ax.scatter(U_true_norm, U_pred_norm, s=10, label=label)
+        ax.scatter(U_true_norm, U_pred_norm, s=10, label=label, color=color)
         ax.plot(U_true_norm, U_true_norm, 'r--', alpha=.5)
 
         ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)

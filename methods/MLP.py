@@ -176,7 +176,7 @@ class MLP(torch.nn.Module):
         ax.legend()
         return ax
 
-    def parity_plot(self, U, D, ax, label):
+    def parity_plot(self, U, D, ax, label, color):
         xy_normalizer = self._normalizers
         D = torch.Tensor(D).cpu()
         if xy_normalizer:
@@ -193,7 +193,7 @@ class MLP(torch.nn.Module):
         U_true = U.detach().cpu().numpy()
         U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
         U_true_norm = np.linalg.norm(U_true, 2, axis=1)
-        ax.scatter(U_true_norm, U_pred_norm, s=10, label=label)
+        ax.scatter(U_true_norm, U_pred_norm, s=10, label=label, color=color)
         ax.plot(U_true_norm, U_true_norm, 'r--', alpha=.5)
 
         ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
