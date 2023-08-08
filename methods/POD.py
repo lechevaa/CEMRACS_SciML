@@ -62,7 +62,7 @@ class POD:
 
         ax.legend()
 
-    def parity_plot(self, U, D, ax, label):
+    def parity_plot(self, U, D, ax, label, color):
         D = D.detach().cpu().numpy()
         U_pred = []
         for d in D:
@@ -71,8 +71,8 @@ class POD:
         U_true = U.detach().cpu().numpy()
         U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
         U_true_norm = np.linalg.norm(U_true, 2, axis=1)
-        ax.scatter(U_true_norm, U_pred_norm, s=10, label=label)
         ax.plot(U_true_norm, U_true_norm, 'r--', alpha=.5)
+        ax.scatter(U_true_norm, U_pred_norm, s=10, label=label, color=color)
 
         ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
         ax.set_xlabel('$\|\mathbf{u}_D\|_2$', fontsize=18, labelpad=15)
