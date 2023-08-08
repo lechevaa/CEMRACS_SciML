@@ -1,11 +1,14 @@
+from typing import Dict
+
+import numpy as np
 import torch
 import torch.optim as optim
 
 from methods.MLP import MLP
-from tqdm import tqdm
 
 from tqdm import tqdm
 import copy
+
 
 class PINN(torch.nn.Module):
     def __init__(self, params: dict):
@@ -44,7 +47,6 @@ class PINN(torch.nn.Module):
     def MSE(pred, true=0):
         return torch.square(true - pred).mean()
 
-
     def phys_loss(self, D, x):
 
         if not x.requires_grad:
@@ -67,23 +69,19 @@ class PINN(torch.nn.Module):
 
         return self.MSE(u0) + self.MSE(u1), self.MSE(res)
 
-
     def data_loss(self, D, x, u_ex):
         u_pred = self.forward(D, x)
         return self.MSE(u_pred, u_ex)
 
-    def fit(self, hyperparameters: dict, DX_train, DX_val, U_train, U_val, data_ratio = 1., physics_ratio = 1.):
-
-        del trainDataset, valDataset
-        del DX_train, DX_val
+    def fit(self, hyperparameters: dict, DX_train, DX_val, U_val, U_train=None, data_ratio=1., physics_ratio=1.):
 
         epochs = hyperparameters['epochs']
         lr = hyperparameters['lr']
         optimizer = getattr(optim, hyperparameters['optimizer'])(self.parameters(), lr=lr)
 
-
         DX_train = torch.Tensor(DX_train).to(self._device)
-        U_train = torch.Tensor(U_train).to(self._device)
+        if U_train is not None:
+            U_train = torch.Tensor(U_train).to(self._device)
 
         DX_val = torch.Tensor(DX_val).to(self._device)
         U_val = torch.Tensor(U_val).to(self._device)
@@ -92,7 +90,6 @@ class PINN(torch.nn.Module):
 
         loading_bar = tqdm(range(epochs), colour='blue')
         for epoch in loading_bar:
-
 
             self.train()
 
@@ -116,7 +113,6 @@ class PINN(torch.nn.Module):
             optimizer.step()
             optimizer.zero_grad()
 
-
             self._losses['train']['data'].append(l_d.item())
             self._losses['train']['ic_bc'].append(l_b.item())
             self._losses['train']['residual'].append(l_r.item())
@@ -129,13 +125,12 @@ class PINN(torch.nn.Module):
                 l_val = self.MSE(U_val, U_val_pred)
                 self._losses['val'].append(l_val.item())
 
-
             # check if new best model
             if l_val == min(self._losses['val']):
                 best_model = copy.deepcopy(self._model.state_dict())
-                
-            loading_bar.set_description('[tr : %.1e, val : %.1e]' %(l_tot, l_val))
-            
+
+            loading_bar.set_description('[tr : %.1e, val : %.1e]' % (l_tot, l_val))
+
         self._model.load_state_dict(best_model)
 
     def plot(self, ax):
@@ -144,36 +139,44 @@ class PINN(torch.nn.Module):
         ax.set_xlabel('Epoch', fontsize=12, labelpad=15)
         ax.set_ylabel('Loss', fontsize=12, labelpad=15)
 
-        ax.plot(self._losses['train']['data'],
-                label=f'Data driven loss', alpha=.7)
+        argmin_val_loss = np.argmin(self._losses['val'])
+        nb_epoch = len(self._losses['val'])
+        if not np.all(self._losses['train']['data'] == np.zeros(nb_epoch)):
+            ax.plot(self._losses['train']['data'],
+                    label=f'Data driven loss: {self._losses["train"]["data"][argmin_val_loss]:.2e}', alpha=.7)
 
-        ax.plot(self._losses['train']['ic_bc'],
-                label=f'Boundary conditions loss', alpha=.7)
+        if not np.all(self._losses['train']['ic_bc'] == np.zeros(nb_epoch)):
 
-        ax.plot(self._losses['train']['residual'],
-                label=f'Residual loss', alpha=.7)
+            ax.plot(self._losses['train']['ic_bc'],
+                    label=f'Boundary conditions \n loss: {self._losses["train"]["ic_bc"][argmin_val_loss]:.2e}', alpha=.7)
+
+        if not np.all(self._losses['train']['residual'] == np.zeros(nb_epoch)):
+            ax.plot(self._losses['train']['residual'],
+                    label=f'Residual loss: {self._losses["train"]["residual"][argmin_val_loss]:.2e}', alpha=.7)
 
         ax.plot(self._losses['val'],
-                label=f'Validation loss', alpha=.7)
+                label=f'Validation loss: {self._losses["val"][argmin_val_loss]:.2e}', alpha=.7)
         ax.legend()
+
         return
 
-    def parity_plot(self, U, DX, ax, label, color):
+    def parity_plot(self, U, DX, ax, label):
         U_pred_norms = []
         U = U.detach().cpu().numpy()
         DX = DX.detach().cpu().numpy()
         U_true_norms = np.linalg.norm(U, 2, axis=1)
 
         for dx in np.unique(DX[:, 0:1]):
-            U_pred_temp = self.apply_method(dx)
+            U_pred_temp = self.apply_method([dx])
             U_pred_norms.append(np.linalg.norm(U_pred_temp, 2))
-        ax.scatter(U_true_norms, U_pred_norms, s=10, label=label, color=color)
+        ax.scatter(U_true_norms, U_pred_norms, s=10, label=label)
         ax.plot(U_true_norms, U_true_norms, 'r--', alpha=.5)
 
         ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
         ax.set_xlabel('$\|\mathbf{u}_D\|_2$', fontsize=18, labelpad=15)
         return ax
 
+
     def load_loss_dict(self, loss_dict: Dict):
         self._losses = loss_dict
-    """
+

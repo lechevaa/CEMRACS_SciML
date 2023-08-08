@@ -25,7 +25,7 @@ class DDMethod:
         if self._method_name == 'POD':
             method = POD(params=self._params)
         elif self._method_name == 'MLP':
-            method = MLP(params=self._params)
+            method = PINN(params=self._params)
         elif self._method_name == 'DEEPONET':
             method = DeepONet(params=self._params)
         elif self._method_name == 'PINN':
@@ -46,11 +46,8 @@ class DDMethod:
 
     def fit(self, **args):
         print(f'Fitting {self._method_name}')
-        if self._method_name in ['POD', 'MLP', 'PINN', 'DEEPONET', 'FNO']:
+        if self._method_name in ['POD', 'MLP', 'PINN', 'DEEPONET', 'FNO', 'MLPINN']:
             self._method.fit(**args)
-
-        elif self._method_name in ['MLPINN']:
-            self._method.fit_supervised(**args)
         print(f'{self._method_name} fitted')
 
     @property
