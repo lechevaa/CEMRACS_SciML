@@ -1,47 +1,56 @@
-import copy
-
-import numpy as np
 import torch
 import torch.optim as optim
-from methods.methodsDataset.PINNDataset import PINNDataset
-from methods.methodsDataset.MLPINNDataset import MLPINNDataset
-from typing import Dict
+
 from methods.MLP import MLP
 from tqdm import tqdm
 
+from tqdm import tqdm
+import copy
 
 class PINN(torch.nn.Module):
-    def __init__(self, params: Dict):
+    def __init__(self, params: dict):
         super(PINN, self).__init__()
+
         self._params = params
         self._solver_params = params['solver']
         self._method_params = params['method']
-        self._losses = {'train': {'residual': [], 'ic_bc': []}, 'val': {'residual': [], 'ic_bc': []}}
-        self._model = MLP(params=params)
 
-    def forward(self, Dx):
+        self._losses = {'train': {'data': [], 'ic_bc': [], 'residual': []},
+                        'val': []}
+        self._model = MLP(params=params)
+        self._device = self._model.device
+
+    def forward(self, D, x):
+        Dx = torch.cat([D, x], dim=1)
         return self._model(Dx)
 
     def apply_method(self, D):
         domain = self._solver_params['domain']
         nx = self._solver_params['nx']
-        D = torch.Tensor([D]*nx).view(-1, 1).to('cpu')
-        x_domain = torch.linspace(domain[0], domain[1], nx).view(-1, 1).to('cpu')
-        u_x = self.forward(torch.cat([D, x_domain], dim=1)).detach().cpu().numpy()
-        return u_x
+
+        D = torch.Tensor(D).reshape(-1, 1)
+        D_nn = D.repeat(1, nx).reshape(-1, 1).to(self._device)
+
+        x = torch.linspace(domain[0], domain[1], nx).view(-1, 1).to('cpu')
+        x_nn = x.repeat(len(D), 1).to(self._device)
+
+        return self.forward(D_nn, x_nn).detach().cpu().numpy()
 
     @property
     def loss_dict(self):
         return self._losses
 
-    def loss(self, D, x):
-        def MSE(pred, true=0):
-            return torch.square(true - pred).mean()
+    @staticmethod
+    def MSE(pred, true=0):
+        return torch.square(true - pred).mean()
+
+
+    def phys_loss(self, D, x):
 
         if not x.requires_grad:
             x.requires_grad = True
 
-        u = self._model(torch.cat([D, x], dim=1))
+        u = self.forward(D, x)
 
         u_x = torch.autograd.grad(u, x, torch.ones_like(u),
                                   create_graph=True, retain_graph=True, allow_unused=True)[0]
@@ -52,176 +61,81 @@ class PINN(torch.nn.Module):
 
         x0 = torch.zeros_like(D)
         x1 = torch.ones_like(D)
-        u0 = self._model(torch.cat([D, x0], dim=1)) - 0.
-        u1 = self._model(torch.cat([D, x1], dim=1)) - 0.
 
-        return MSE(u0) + MSE(u1), MSE(res)
+        u0 = self.forward(D, x0) - 0.
+        u1 = self.forward(D, x1) - 0.
 
-    def fit(self, hyperparameters: Dict, DX_train, DX_val):
-        torch.manual_seed(self._method_params['seed'])
-        np.random.seed(self._method_params['seed'])
+        return self.MSE(u0) + self.MSE(u1), self.MSE(res)
 
-        DX_train = torch.Tensor(DX_train)
-        DX_val = torch.Tensor(DX_val)
 
-        trainDataset = PINNDataset(x=DX_train)
-        valDataset = PINNDataset(x=DX_val)
+    def data_loss(self, D, x, u_ex):
+        u_pred = self.forward(D, x)
+        return self.MSE(u_pred, u_ex)
 
-        batch_size = hyperparameters['batch_size']
-
-        trainLoader = torch.utils.data.DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
-        valLoader = torch.utils.data.DataLoader(valDataset, batch_size=batch_size, shuffle=False)
+    def fit(self, hyperparameters: dict, DX_train, DX_val, U_train, U_val, data_ratio = 1., physics_ratio = 1.):
 
         del trainDataset, valDataset
         del DX_train, DX_val
 
         epochs = hyperparameters['epochs']
-        device = self._method_params['device']
         lr = hyperparameters['lr']
-        optim_name = hyperparameters['optimizer']
-        optimizer = getattr(optim, optim_name)(self.parameters(), lr=lr)
+        optimizer = getattr(optim, hyperparameters['optimizer'])(self.parameters(), lr=lr)
 
-        loading_bar = tqdm(range(epochs + 1), colour='blue')
+
+        DX_train = torch.Tensor(DX_train).to(self._device)
+        U_train = torch.Tensor(U_train).to(self._device)
+
+        DX_val = torch.Tensor(DX_val).to(self._device)
+        U_val = torch.Tensor(U_val).to(self._device)
 
         best_model = copy.deepcopy(self._model.state_dict())
-        i = None
+
+        loading_bar = tqdm(range(epochs), colour='blue')
         for epoch in loading_bar:
-            loading_bar.set_description('[epoch: %d ' % epoch)
+
+
             self.train()
-            lb_train, lr_train = 0., 0.
-            for i, dx in enumerate(trainLoader):
-                d, x = dx[:, 0:1], dx[:, 1:2]
-                d, x = d.to(device), x.to(device)
 
-                optimizer.zero_grad()
-                lb, lr = self.loss(d, x)
-                l_tot = lb + lr
-                l_tot.backward()
+            d, x = DX_train[:, 0:1], DX_train[:, 1:2]
 
-                optimizer.step()
-                lb_train += lb.item()
-                lr_train += lr.item()
+            # Data driven loss
+            if data_ratio == 0.:
+                l_d = torch.zeros(1, device=self._device)
+            else:
+                l_d = self.data_loss(d, x, U_train)
 
-            lr_train /= (i + 1)
-            lb_train /= (i + 1)
-            self._losses['train']['residual'].append(lr_train)
-            self._losses['train']['ic_bc'].append(lb_train)
+            # Physics informed loss
+            if physics_ratio == 0.:
+                l_b, l_r = torch.zeros(1, device=self._device), torch.zeros(1, device=self._device)
+            else:
+                l_b, l_r = self.phys_loss(d, x)
+
+            # Total loss
+            l_tot = data_ratio * l_d + physics_ratio * (l_b + l_r)
+            l_tot.backward()
+            optimizer.step()
+            optimizer.zero_grad()
+
+
+            self._losses['train']['data'].append(l_d.item())
+            self._losses['train']['ic_bc'].append(l_b.item())
+            self._losses['train']['residual'].append(l_r.item())
+
             # Validation of the model.
-            lr_val, lb_val = 0., 0.
+            self.eval()
 
-            for i, dx in enumerate(valLoader):
-                d, x = dx[:, 0:1], dx[:, 1:2]
-                d, x = d.to(device), x.to(device)
-                lb, lr = self.loss(d, x)
-                lb_val += lb.item()
-                lr_val += lr.item()
+            with torch.no_grad():
+                U_val_pred = self._model(DX_val)
+                l_val = self.MSE(U_val, U_val_pred)
+                self._losses['val'].append(l_val.item())
 
-            lr_val /= (i + 1)
-            lb_val /= (i + 1)
-
-            self._losses['val']['residual'].append(lr_val)
-            self._losses['val']['ic_bc'].append(lb_val)
 
             # check if new best model
-            val_tot = [sum(x) for x in zip(self._losses['val']['ic_bc'], self._losses['val']['residual'])]
-            if lr_val + lb_val == min(val_tot):
+            if l_val == min(self._losses['val']):
                 best_model = copy.deepcopy(self._model.state_dict())
-
-        self._model.load_state_dict(best_model)
-
-    def fit_supervised(self, hyperparameters: Dict, DX_train, DX_val, U_train, U_val):
-        self._losses['train']['data_driven'] = []
-        self._losses['val']['data_driven'] = []
-
-        torch.manual_seed(self._method_params['seed'])
-        np.random.seed(self._method_params['seed'])
-
-        DX_train = torch.Tensor(DX_train)
-        DX_val = torch.Tensor(DX_val)
-
-        U_train = torch.Tensor(U_train)
-        U_val = torch.Tensor(U_val)
-
-        trainDataset = MLPINNDataset(x=DX_train, y=U_train)
-        valDataset = MLPINNDataset(x=DX_val, y=U_val)
-
-        batch_size = hyperparameters['batch_size']
-
-        trainLoader = torch.utils.data.DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
-        valLoader = torch.utils.data.DataLoader(valDataset, batch_size=batch_size, shuffle=False)
-
-        del trainDataset, valDataset
-        del DX_train, DX_val
-
-        epochs = hyperparameters['epochs']
-        device = self._method_params['device']
-        lr = hyperparameters['lr']
-        optim_name = hyperparameters['optimizer']
-        optimizer = getattr(optim, optim_name)(self.parameters(), lr=lr)
-
-        best_model = copy.deepcopy(self._model.state_dict())
-        i = None
-
-        def MSE(pred, true=0):
-            return torch.square(true - pred).mean()
-
-        loading_bar = tqdm(range(epochs + 1), colour='blue')
-        for epoch in loading_bar:
-            loading_bar.set_description('[epoch: %d ' % epoch)
-            self.train()
-            lb_train, lr_train, l_dd_train = 0., 0., 0.
-            for i, data in enumerate(trainLoader):
-                dx, label = data
-                d, x = dx[:, 0:1], dx[:, 1:2]
-                d, x = d.to(device), x.to(device)
-                label = label.to(device)
-
-                optimizer.zero_grad()
-                l_dd = MSE(pred=self(dx), true=label)
-                lb, lr = self.loss(d, x)
-                l_tot = lb + lr + l_dd
-                l_tot.backward()
-
-                optimizer.step()
-                lb_train += lb.item()
-                lr_train += lr.item()
-                l_dd_train += l_dd.item()
-
-            lr_train /= (i + 1)
-            lb_train /= (i + 1)
-            l_dd_train /= (i + 1)
-            self._losses['train']['residual'].append(lr_train)
-            self._losses['train']['ic_bc'].append(lb_train)
-            self._losses['train']['data_driven'].append(l_dd_train)
-            # Validation of the model.
-            lr_val, lb_val, l_dd_val = 0., 0., 0.
-
-            for i, data in enumerate(valLoader):
-                dx, label = data
-                d, x = dx[:, 0:1], dx[:, 1:2]
-                d, x = d.to(device), x.to(device)
-                label = label.to(device)
-                # dx.requires_grad = True
-                l_dd = MSE(pred=self(dx), true=label)
-                lb, lr = self.loss(d, x)
-                lb_val += lb.item()
-                lr_val += lr.item()
-                l_dd_val += l_dd.item()
-
-            lr_val /= (i + 1)
-            lb_val /= (i + 1)
-            l_dd_val /= (i + 1)
-
-            self._losses['val']['residual'].append(lr_val)
-            self._losses['val']['ic_bc'].append(lb_val)
-            self._losses['val']['data_driven'].append(l_dd_val)
-            # check if new best model
-            val_tot = [sum(x) for x in zip(self._losses['val']['ic_bc'],
-                                           self._losses['val']['residual'],
-                                           self._losses['val']['data_driven'])]
-            if lr_val + lb_val + l_dd_val == min(val_tot):
-                best_model = copy.deepcopy(self._model.state_dict())
-
+                
+            loading_bar.set_description('[tr : %.1e, val : %.1e]' %(l_tot, l_val))
+            
         self._model.load_state_dict(best_model)
 
     def plot(self, ax):
@@ -229,25 +143,18 @@ class PINN(torch.nn.Module):
         ax.set_yscale('log')
         ax.set_xlabel('Epoch', fontsize=12, labelpad=15)
         ax.set_ylabel('Loss', fontsize=12, labelpad=15)
-        # ax.plot(self._losses['train']['residual'],
-        #         label=f'Train residual loss: {min(self._losses["train"]["residual"]):.2}', alpha=.7)
-        # ax.plot(self._losses['val']['residual'],
-        #         label=f'Val residual loss: {min(self._losses["val"]["residual"]):.2}', alpha=.7)
-        # ax.plot(self._losses['train']['ic_bc'],
-        #         label=f'Train boundary conditions loss: {min(self._losses["train"]["ic_bc"]):.2}', alpha=.7)
-        # ax.plot(self._losses['val']['ic_bc'],
-        #         label=f'Val boundary conditions loss: {min(self._losses["val"]["ic_bc"]):.2}', alpha=.7)
-        #
-        train_tot = [sum(x) for x in zip(self._losses['train']['ic_bc'], self._losses['train']['residual'])]
-        ax.plot(train_tot,
-                label=f'Train total loss: '
-                      f'{min(train_tot):.2e}',
-                alpha=.7)
-        val_tot = [sum(x) for x in zip(self._losses['val']['ic_bc'], self._losses['val']['residual'])]
-        ax.plot(val_tot,
-                label=f'Val total loss: '
-                      f'{min(val_tot):.2e}',
-                alpha=.7)
+
+        ax.plot(self._losses['train']['data'],
+                label=f'Data driven loss', alpha=.7)
+
+        ax.plot(self._losses['train']['ic_bc'],
+                label=f'Boundary conditions loss', alpha=.7)
+
+        ax.plot(self._losses['train']['residual'],
+                label=f'Residual loss', alpha=.7)
+
+        ax.plot(self._losses['val'],
+                label=f'Validation loss', alpha=.7)
         ax.legend()
         return
 
@@ -269,3 +176,4 @@ class PINN(torch.nn.Module):
 
     def load_loss_dict(self, loss_dict: Dict):
         self._losses = loss_dict
+    """
