@@ -11,7 +11,7 @@ class PoissonSolver:
         # 1D domain should be: [a, b] with a > b
         self._domain = params['domain']
         self._nx = params['nx']
-        self._source_term = params['source term']
+        self._source_term = self.init_source_term()
         # D is scalar for now
         self._D = params['D']
         self._x = np.linspace(self._domain[0], self._domain[1], self._nx)
@@ -82,4 +82,10 @@ class PoissonSolver:
         self._D = params['D']
         self._nx = params['nx']
         self._x = np.linspace(self._domain[0], self._domain[1], self._nx)
+
+    def init_source_term(self):
+        if 'source_term' in self._params.keys():
+            return self._params['source_term']
+        else:
+            return np.ones_like
 
