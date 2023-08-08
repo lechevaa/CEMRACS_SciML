@@ -46,6 +46,7 @@ class MLP(torch.nn.Module):
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.to(self.device)
 
+        self._normalizers = None
         # print(self)
         # print('device :', self.device)
 
@@ -101,7 +102,8 @@ class MLP(torch.nn.Module):
         U_val = torch.Tensor(U_val)
 
         trainDataset = MLPDataset(x=D_train, y=U_train)
-        valDataset = MLPDataset(x=D_val, y=U_val)
+        self._normalizers = trainDataset.get_normalizers()
+        valDataset = MLPDataset(x=D_val, y=U_val, normalizers=self._normalizers)
 
         batch_size = hyperparameters['batch_size']
 
@@ -175,8 +177,19 @@ class MLP(torch.nn.Module):
         return ax
 
     def parity_plot(self, U, D, ax, label):
+        xy_normalizer = self._normalizers
         D = torch.Tensor(D).cpu()
-        U_pred = self(D).detach().cpu().numpy()
+        if xy_normalizer:
+            x_normalizer, y_normalizer = xy_normalizer
+            if x_normalizer:
+                D = x_normalizer.encode(D)
+            U_pred = self(D).detach().cpu()
+            if y_normalizer:
+                U_pred = y_normalizer.decode(U_pred)
+            U_pred.numpy()
+        else:
+            U_pred = self(D).detach().cpu().numpy()
+
         U_true = U.detach().cpu().numpy()
         U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
         U_true_norm = np.linalg.norm(U_true, 2, axis=1)
@@ -189,3 +202,11 @@ class MLP(torch.nn.Module):
 
     def load_loss_dict(self, loss_dict: Dict):
         self._losses = loss_dict
+
+    @property
+    def normalizers(self):
+        return self._normalizers
+
+    def load_normalizers(self, normalizers):
+        self._normalizers = normalizers
+

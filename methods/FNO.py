@@ -103,6 +103,8 @@ class FNO1d(torch.nn.Module):
             self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.to(self.device)
 
+        self._normalizers = None
+
     def creat_FourierLayers(self):
         layers_dim = self.FourierLayers_dim
         modes = self.FourierLayers_modes
@@ -143,7 +145,14 @@ class FNO1d(torch.nn.Module):
         nx = self._solver_params['nx']
         x = torch.Tensor(x).view(-1, 1)
         x = x.repeat(1, nx).unsqueeze(-1).cpu()
-        return self.forward(x)
+
+        x_normalizer, y_normalizer = self._normalizers
+        if x_normalizer:
+            x = x_normalizer.encode(x)
+        pred = self.forward(x)
+        if y_normalizer:
+            pred = y_normalizer.decode(pred.squeeze(-1))
+        return pred
 
     def fit(self, hyperparameters: dict, D_train, D_val, U_train, U_val):
         torch.manual_seed(self._method_params['seed'])
@@ -156,7 +165,9 @@ class FNO1d(torch.nn.Module):
         U_val = torch.Tensor(U_val)
 
         trainDataset = FNODataset(x=D_train, y=U_train)
-        valDataset = FNODataset(x=D_val, y=U_val)
+        self._normalizers = trainDataset.get_normalizers()
+
+        valDataset = FNODataset(x=D_val, y=U_val, normalizers=self.normalizers)
 
         batch_size = hyperparameters['batch_size']
 
@@ -172,7 +183,7 @@ class FNO1d(torch.nn.Module):
         optim_name = hyperparameters['optimizer']
         optimizer = getattr(optim, optim_name)(self.parameters(), lr=lr)
 
-        def loss_fn(x, y=0):
+        def loss_fn(x, y):
             return torch.square(y - x).mean()
 
         best_model = copy.deepcopy(self.state_dict())
@@ -191,6 +202,7 @@ class FNO1d(torch.nn.Module):
                 label = label.to(self.device)
                 optimizer.zero_grad()
                 output = self(inputs).squeeze(-1)
+
                 loss = loss_fn(output, label)
                 loss.backward()
                 optimizer.step()
@@ -218,7 +230,7 @@ class FNO1d(torch.nn.Module):
             if loss_val == min(self._losses['val']):
                 best_model = copy.deepcopy(self.state_dict())
 
-        self.load_state_dict(best_model.state_dict())
+        self.load_state_dict(best_model)
 
     def plot(self, ax):
 
@@ -234,13 +246,26 @@ class FNO1d(torch.nn.Module):
         return ax
 
     def parity_plot(self, U, D, ax, label):
+        xy_normalizer = self._normalizers
         nx = U.shape[1]
         D = torch.Tensor(D).view(-1, 1)
         D = D.repeat(1, nx).unsqueeze(-1).cpu()
-        U_pred = self(D).detach().cpu().numpy()
+        if xy_normalizer:
+            x_normalizer, y_normalizer = xy_normalizer
+            if x_normalizer:
+                D = x_normalizer.encode(D)
+            U_pred = self(D).detach().cpu()
+            if y_normalizer:
+                U_pred = y_normalizer.decode(U_pred.squeeze(-1))
+            U_pred.numpy()
+        else:
+            U_pred = self(D).detach().cpu().numpy()
+
         U_true = U.detach().cpu().numpy()
+
         U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
         U_true_norm = np.linalg.norm(U_true, 2, axis=1)
+
         ax.scatter(U_true_norm, U_pred_norm, s=10, label=label)
         ax.plot(U_true_norm, U_true_norm, 'r--', alpha=.5)
 
@@ -254,3 +279,11 @@ class FNO1d(torch.nn.Module):
 
     def load_loss_dict(self, loss_dict: Dict):
         self._losses = loss_dict
+
+    @property
+    def normalizers(self):
+        return self._normalizers
+
+    def load_normalizers(self, normalizers):
+        self._normalizers = normalizers
+

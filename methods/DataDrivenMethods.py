@@ -58,11 +58,18 @@ class DDMethod:
         if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO', 'MLPINN']:
             return self._method.state_dict()
 
+    @property
+    def normalizers(self):
+        if self._method_name in ['FNO']:
+            return self._method.normalizers
+
     def load_state_dict(self, path: str):
         if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO', 'MLPINN']:
             checkpoint = torch.load(path, map_location=torch.device('cpu'))
             self._method.load_loss_dict(checkpoint['loss_dict'])
             self._method.load_state_dict(checkpoint['model_state_dict'])
+            if 'normalizers' in checkpoint.keys():
+                self._method.load_normalizers(checkpoint['normalizers'])
 
     def loss_dict(self):
         if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO', 'MLPINN']:
