@@ -2,6 +2,7 @@ import torch
 import torch.optim as optim
 
 from methods.MLP import MLP
+from tqdm import tqdm
 
 from tqdm import tqdm
 import copy
@@ -43,6 +44,7 @@ class PINN(torch.nn.Module):
     def MSE(pred, true=0):
         return torch.square(true - pred).mean()
 
+
     def phys_loss(self, D, x):
 
         if not x.requires_grad:
@@ -59,10 +61,12 @@ class PINN(torch.nn.Module):
 
         x0 = torch.zeros_like(D)
         x1 = torch.ones_like(D)
+
         u0 = self.forward(D, x0) - 0.
         u1 = self.forward(D, x1) - 0.
 
         return self.MSE(u0) + self.MSE(u1), self.MSE(res)
+
 
     def data_loss(self, D, x, u_ex):
         u_pred = self.forward(D, x)
@@ -70,9 +74,13 @@ class PINN(torch.nn.Module):
 
     def fit(self, hyperparameters: dict, DX_train, DX_val, U_train, U_val, data_ratio = 1., physics_ratio = 1.):
 
+        del trainDataset, valDataset
+        del DX_train, DX_val
+
         epochs = hyperparameters['epochs']
         lr = hyperparameters['lr']
         optimizer = getattr(optim, hyperparameters['optimizer'])(self.parameters(), lr=lr)
+
 
         DX_train = torch.Tensor(DX_train).to(self._device)
         U_train = torch.Tensor(U_train).to(self._device)
@@ -84,6 +92,7 @@ class PINN(torch.nn.Module):
 
         loading_bar = tqdm(range(epochs), colour='blue')
         for epoch in loading_bar:
+
 
             self.train()
 
@@ -107,6 +116,7 @@ class PINN(torch.nn.Module):
             optimizer.step()
             optimizer.zero_grad()
 
+
             self._losses['train']['data'].append(l_d.item())
             self._losses['train']['ic_bc'].append(l_b.item())
             self._losses['train']['residual'].append(l_r.item())
@@ -119,6 +129,7 @@ class PINN(torch.nn.Module):
                 l_val = self.MSE(U_val, U_val_pred)
                 self._losses['val'].append(l_val.item())
 
+
             # check if new best model
             if l_val == min(self._losses['val']):
                 best_model = copy.deepcopy(self._model.state_dict())
@@ -126,7 +137,6 @@ class PINN(torch.nn.Module):
             loading_bar.set_description('[tr : %.1e, val : %.1e]' %(l_tot, l_val))
             
         self._model.load_state_dict(best_model)
-
 
     def plot(self, ax):
         ax.grid(True)

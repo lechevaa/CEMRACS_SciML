@@ -1,5 +1,6 @@
 import torch
 import torch.optim as optim
+from tqdm import tqdm
 
 from methods.MLP import MLP
 
@@ -44,6 +45,10 @@ class DeepONet(torch.nn.Module):
 
     def fit(self, hyperparameters: dict, train_data, val_data):
 
+        del DX_val, U_val
+        del DX_train, U_train
+        del trainDataset, valDataset
+
         epochs = hyperparameters['epochs']
         lr = hyperparameters['lr']
         optim_name = hyperparameters['optimizer']
@@ -65,6 +70,7 @@ class DeepONet(torch.nn.Module):
         loading_bar = tqdm(range(epochs), colour='blue')
         for epoch in loading_bar:
 
+            # Training of the model
             self.train()
 
             U_pred = self.forward(D_train, X_train)
@@ -88,9 +94,7 @@ class DeepONet(torch.nn.Module):
 
             # check if new best model
             if loss_val == min(self._losses['val']):
-                best_model = copy.deepcopy(self)
-
-
+                best_model = copy.deepcopy(self.state_dict())
 
         #self.load_state_dict(best_model.state_dict())
 
@@ -100,9 +104,9 @@ class DeepONet(torch.nn.Module):
         ax.set_yscale('log')
         ax.set_xlabel('Epoch', fontsize=12, labelpad=15)
         ax.set_ylabel('Loss', fontsize=12, labelpad=15)
+
         ax.plot(self._losses['train'], label=f'Training loss', alpha=.7)
         ax.plot(self._losses['val'], label=f'Validation loss', alpha=.7)
-
         ax.legend()
         return
 

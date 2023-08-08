@@ -6,6 +6,7 @@ from methods.POD import POD
 from methods.MLP import MLP
 from methods.DeepONet import DeepONet
 from methods.PINN import PINN
+from methods.FNO import FNO1d
 
 
 class DDMethod:
@@ -31,6 +32,8 @@ class DDMethod:
             method = PINN(params=self._params)
         elif self._method_name == 'MLPINN':
             method = PINN(params=self._params)
+        elif self._method_name == 'FNO':
+            method = FNO1d(params=self._params)
         else:
             method = None
         return method
@@ -57,7 +60,7 @@ class DDMethod:
 
     def load_state_dict(self, path: str):
         if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO', 'MLPINN']:
-            checkpoint = torch.load(path)
+            checkpoint = torch.load(path, map_location=torch.device('cpu'))
             self._method.load_loss_dict(checkpoint['loss_dict'])
             self._method.load_state_dict(checkpoint['model_state_dict'])
 
