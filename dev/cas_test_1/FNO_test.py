@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 
 import sys
-sys.path.insert(1, '../methods/')
+sys.path.insert(1, '../../methods/')
 
 from methods.FNO import FNO1d
 from solvers.Solver import Solver
