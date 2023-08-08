@@ -1,14 +1,10 @@
-import copy
-
-import numpy as np
 import torch
 import torch.optim as optim
 
-from typing import Dict
-
 from methods.MLP import MLP
-from methods.methodsDataset.DeepONetDataset import DeepONetDataset
 
+import copy
+from tqdm import tqdm
 
 class DeepONet(torch.nn.Module):
     def __init__(self, params):
@@ -22,93 +18,81 @@ class DeepONet(torch.nn.Module):
         self.branch = MLP(params={'solver': params['solver'], 'method':  params['method']['branch']})
         self.trunk = MLP(params={'solver': params['solver'], 'method':  params['method']['trunk']})
 
+        assert self.branch.device == self.trunk.device
+        self._device = self.branch.device
+
     @property
     def loss_dict(self):
         return self._losses
 
-    def forward(self, u, y):
-        weights = self.branch(u)
-        basis = self.trunk(y)
-        output = torch.matmul(weights, basis.T)
-        return output
+    def forward(self, D, x):
+        weights = self.branch(D)
+        basis = self.trunk(x)
+        return torch.matmul(weights, basis.T)
 
-    def apply_method(self, u):
+    def apply_method(self, D):
         domain = self._solver_params['domain']
         nx = self._solver_params['nx']
-        u = torch.Tensor([u]).view(-1, 1).to('cpu')
-        x_domain = torch.linspace(domain[0], domain[1], nx).view(-1, 1).to('cpu')
-        u_x = []
-        for x in x_domain:
-            u_x.append(self.forward(u, x).detach())
-        return np.array(u_x)
+        x = torch.linspace(domain[0], domain[1], nx).view(-1, 1).to(self._device)
+        D = torch.Tensor(D).view(-1, 1).to(self._device)
 
-    def fit(self, hyperparameters: Dict, DX_train, DX_val, U_train, U_val):
-        torch.manual_seed(self._branch_params['seed'])
-        np.random.seed(self._branch_params['seed'])
+        return self.forward(D, x).detach().cpu().numpy()
 
-        DX_train = torch.Tensor(DX_train)
-        U_train = torch.Tensor(U_train)
+    @staticmethod
+    def MSE(pred, true=0):
+        return torch.square(true - pred).mean()
 
-        DX_val = torch.Tensor(DX_val)
-        U_val = torch.Tensor(U_val)
-
-        trainDataset = DeepONetDataset(x=DX_train, y=U_train)
-        valDataset = DeepONetDataset(x=DX_val, y=U_val)
-
-        batch_size = hyperparameters['batch_size']
-
-        trainLoader = torch.utils.data.DataLoader(trainDataset, batch_size=batch_size, shuffle=True)
-        valLoader = torch.utils.data.DataLoader(valDataset, batch_size=batch_size, shuffle=False)
+    def fit(self, hyperparameters: dict, train_data, val_data):
 
         epochs = hyperparameters['epochs']
-        device = hyperparameters['device']
         lr = hyperparameters['lr']
         optim_name = hyperparameters['optimizer']
         optimizer = getattr(optim, optim_name)(self.parameters(), lr=lr)
 
-        def loss_fn(x, y=0):
-            return torch.square(y - x).mean()
+        D_train, X_train, U_train = train_data
+        D_train = torch.Tensor(D_train).to(self._device)
+        X_train = torch.Tensor(X_train).to(self._device)
+        U_train = torch.Tensor(U_train).to(self._device)
+
+        D_val, X_val, U_val = val_data
+        D_val = torch.Tensor(D_val).to(self._device)
+        X_val = torch.Tensor(X_val).to(self._device)
+        U_val = torch.Tensor(U_val).to(self._device)
+
 
         best_model = copy.deepcopy(self)
-        for epoch in range(epochs):
+
+        loading_bar = tqdm(range(epochs), colour='blue')
+        for epoch in loading_bar:
+
             self.train()
-            loss_train = 0.
 
-            for i, data in enumerate(trainLoader):
-                dx, u = data
-                dx, u = dx.to(device), u.to(device)
+            U_pred = self.forward(D_train, X_train)
+            loss_tr = self.MSE(U_pred, U_train)
 
-                optimizer.zero_grad()
-
-                output = self(dx[:, 0:1], dx[:, 1:2])
-
-                loss = loss_fn(output, u)
-
-                loss.backward()
-                optimizer.step()
-                loss_train += loss.item()
-            loss_train /= (i + 1)
+            loss_tr.backward()
+            optimizer.step()
+            optimizer.zero_grad()
 
             # Validation of the model.
             self.eval()
-            loss_val = 0.
+
             with torch.no_grad():
-                for i, data in enumerate(valLoader):
-                    dx, u = data
-                    dx, u = dx.to(device), u.to(device)
-                    output = self(dx[:, 0:1], dx[:, 1:2])
-                    loss_val += loss_fn(output, u).item()
+                U_pred = self.forward(D_val, X_val)
+                loss_val = self.MSE(U_pred, U_val)
 
-            loss_val /= (i + 1)
+            self._losses['train'].append(loss_tr.item())
+            self._losses['val'].append(loss_val.item())
 
-            self._losses['train'].append(loss_train)
-            self._losses['val'].append(loss_val)
+            loading_bar.set_description('[tr : %.1e, val : %.1e]' % (loss_tr, loss_val))
 
             # check if new best model
             if loss_val == min(self._losses['val']):
                 best_model = copy.deepcopy(self)
 
-        self.load_state_dict(best_model.state_dict())
+
+
+        #self.load_state_dict(best_model.state_dict())
 
     def plot(self, ax):
 
@@ -116,12 +100,13 @@ class DeepONet(torch.nn.Module):
         ax.set_yscale('log')
         ax.set_xlabel('Epoch', fontsize=12, labelpad=15)
         ax.set_ylabel('Loss', fontsize=12, labelpad=15)
-        ax.plot(self._losses['train'], label=f'Training loss: {min(self._losses["train"]):.2e}', alpha=.7)
-        ax.plot(self._losses['val'], label=f'Validation loss: {min(self._losses["val"]):.2e}', alpha=.7)
+        ax.plot(self._losses['train'], label=f'Training loss', alpha=.7)
+        ax.plot(self._losses['val'], label=f'Validation loss', alpha=.7)
 
         ax.legend()
         return
 
+    """
     def parity_plot(self, U, DX, ax, label):
 
         U_pred_norms = []
@@ -137,6 +122,9 @@ class DeepONet(torch.nn.Module):
         ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
         ax.set_xlabel('$\|\mathbf{u}_D\|_2$', fontsize=18, labelpad=15)
         return ax
+    """
 
+    """
     def load_loss_dict(self, loss_dict: Dict):
         self._losses = loss_dict
+    """
