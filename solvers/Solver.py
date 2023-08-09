@@ -45,6 +45,10 @@ class Solver:
     def D(self) -> np.ndarray:
         return self._solver.D
 
+    @property
+    def Y(self):
+        return self._solver.Y
+
     def solve(self):
         if self._solver:
             return self._solver.solve()
@@ -54,4 +58,10 @@ class Solver:
         self._solver_params['D'] = new_D
         self._solver.update(self._solver_params)
 
-
+    def change_y(self, new_y):
+        if 'y' in self._solver_params.keys():
+            self._solver_params = copy.deepcopy(self._solver_params)
+            self._solver_params['y'] = new_y
+            self._solver.update(self._solver_params)
+        else:
+            return

@@ -11,10 +11,16 @@ class PoissonSolver:
         # 1D domain should be: [a, b] with a > b
         self._domain = params['domain']
         self._nx = params['nx']
-        self._fx = self.init_fx()
+
         # D is scalar for now
-        self._D = self.init_D()
+        self._D = params['D']
         self._x = np.linspace(self._domain[0], self._domain[1], self._nx)
+        
+        # source term init
+        self._y = None
+        self._source_term = self.init_source_term()
+        self._fx = self.init_fx()
+
         assert True
 
     @property
@@ -38,6 +44,10 @@ class PoissonSolver:
         return self._D
 
     @property
+    def Y(self):
+        return self._y
+
+    @property
     def A(self):
         return self._A_assembly()
 
@@ -54,8 +64,6 @@ class PoissonSolver:
         di = np.hstack([Ones, 0])
 
         A_mat = scipy.sparse.diags([di, d, ds], [-1, 0, 1])
-
-        # A_mat = -2 * np.eye(nx) + np.eye(nx, k=-1) + np.eye(nx, k=1)
         return A_mat
 
     def _F(self):
@@ -77,24 +85,22 @@ class PoissonSolver:
         self._equation = params['equation']
         # 1D domain should be: [a, b] with a > b
         self._domain = params['domain']
+        self._nx = params['nx']
+        self._source_term = self.init_source_term()
         # D is scalar for now
         self._D = params['D']
-        self._nx = params['nx']
         self._x = np.linspace(self._domain[0], self._domain[1], self._nx)
+        self._fx = self.init_fx()
+
+    def init_source_term(self):
+        if 'source_term' in self._params.keys():
+            return self._params['source_term']
+        else:
+            return np.ones_like
 
     def init_fx(self):
-        if 'source_term' in self.params.keys():
-            assert len(self.params['source_term']) == self._nx
-            return self.params['source_term']
+        if 'source_term' in self._params.keys() and 'y' in self._params.keys():
+            self._y = self._params['y']
+            return self._source_term(self._params['y'], self._x)
         else:
-            return np.ones(self._nx)
-
-    def init_D(self):
-        D = self.params['D']
-        if isinstance(D, float):
-            return D * np.ones(self._nx)
-        elif len(D) == 1:
-            return D * np.ones(self._nx)
-        else:
-            assert len(D) == self._nx
-            return D
+            return self._source_term(self._x)

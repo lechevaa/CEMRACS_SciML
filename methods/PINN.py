@@ -160,7 +160,7 @@ class PINN(torch.nn.Module):
 
         return
 
-    def parity_plot(self, U, DX, ax, label):
+    def parity_plot(self, U, DX, ax, label, color):
         U_pred_norms = []
         U = U.detach().cpu().numpy()
         DX = DX.detach().cpu().numpy()
@@ -169,7 +169,7 @@ class PINN(torch.nn.Module):
         for dx in np.unique(DX[:, 0:1]):
             U_pred_temp = self.apply_method([dx])
             U_pred_norms.append(np.linalg.norm(U_pred_temp, 2))
-        ax.scatter(U_true_norms, U_pred_norms, s=10, label=label)
+        ax.scatter(U_true_norms, U_pred_norms, s=10, label=label, color=color)
         ax.plot(U_true_norms, U_true_norms, 'r--', alpha=.5)
 
         ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
