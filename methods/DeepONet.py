@@ -47,21 +47,18 @@ class DeepONet(torch.nn.Module):
     def MSE(pred, true=0):
         return torch.square(true - pred).mean()
 
-    def fit(self, hyperparameters: dict, DX_train, DX_val, U_train, U_val):
+    def fit(self, hyperparameters: dict, D_train, D_val, U_train, U_val):
 
         epochs = hyperparameters['epochs']
         lr = hyperparameters['lr']
         optim_name = hyperparameters['optimizer']
         optimizer = getattr(optim, optim_name)(self.parameters(), lr=lr)
-
-        D_train, X_train = DX_train[:, 0:1],  DX_train[:, 1:2]
+        X = torch.linspace(0., 1., self._solver_params['nx']).view(-1, 1)
         D_train = torch.Tensor(D_train).to(self._device)
-        X_train = torch.Tensor(X_train).to(self._device)
+        X = X.to(self._device)
         U_train = torch.Tensor(U_train).to(self._device)
 
-        D_val, X_val = DX_val[:, 0:1],  DX_val[:, 1:2]
         D_val = torch.Tensor(D_val).to(self._device)
-        X_val = torch.Tensor(X_val).to(self._device)
         U_val = torch.Tensor(U_val).to(self._device)
 
         best_model = copy.deepcopy(self.state_dict())
@@ -72,7 +69,7 @@ class DeepONet(torch.nn.Module):
             # Training of the model
             self.train()
 
-            U_pred = self.forward(D_train, X_train)
+            U_pred = self.forward(D_train, X)
             loss_tr = self.MSE(U_pred, U_train)
 
             loss_tr.backward()
@@ -83,7 +80,7 @@ class DeepONet(torch.nn.Module):
             self.eval()
 
             with torch.no_grad():
-                U_pred = self.forward(D_val, X_val)
+                U_pred = self.forward(D_val, X)
                 loss_val = self.MSE(U_pred, U_val)
 
             self._losses['train'].append(loss_tr.item())

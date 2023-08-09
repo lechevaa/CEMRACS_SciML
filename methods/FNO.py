@@ -145,17 +145,7 @@ class FNO1d(torch.nn.Module):
         nx = self._solver_params['nx']
         x = torch.Tensor(x).view(-1, 1)
         x = x.repeat(1, nx).unsqueeze(-1).cpu()
-
-        normalizers = self._normalizers
-        if normalizers:
-            x_normalizer, y_normalizer = self._normalizers
-        else:
-            x_normalizer, y_normalizer = None, None
-        if x_normalizer:
-            x = x_normalizer.encode(x)
         pred = self.forward(x)
-        if y_normalizer:
-            pred = y_normalizer.decode(pred.squeeze(-1))
         return pred
 
     def fit(self, hyperparameters: dict, D_train, D_val, U_train, U_val):
@@ -169,9 +159,7 @@ class FNO1d(torch.nn.Module):
         U_val = torch.Tensor(U_val)
 
         trainDataset = FNODataset(x=D_train, y=U_train)
-        self._normalizers = trainDataset.get_normalizers()
-
-        valDataset = FNODataset(x=D_val, y=U_val, normalizers=self.normalizers)
+        valDataset = FNODataset(x=D_val, y=U_val)
 
         batch_size = hyperparameters['batch_size']
 

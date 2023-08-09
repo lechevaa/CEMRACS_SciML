@@ -130,7 +130,6 @@ class PINN(torch.nn.Module):
                 best_model = copy.deepcopy(self._model.state_dict())
 
             loading_bar.set_description('[tr : %.1e, val : %.1e]' % (l_tot, l_val))
-
         self._model.load_state_dict(best_model)
 
     def plot(self, ax):
@@ -138,7 +137,6 @@ class PINN(torch.nn.Module):
         ax.set_yscale('log')
         ax.set_xlabel('Epoch', fontsize=12, labelpad=15)
         ax.set_ylabel('Loss', fontsize=12, labelpad=15)
-
         argmin_val_loss = np.argmin(self._losses['val'])
         nb_epoch = len(self._losses['val'])
         if not np.all(self._losses['train']['data'] == np.zeros(nb_epoch)):
