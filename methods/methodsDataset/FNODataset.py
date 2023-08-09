@@ -6,37 +6,17 @@ class FNODataset(Dataset):
     def __init__(self, x, y, normalizers=None):
         nx = y.shape[1]
 
-        x = torch.Tensor(x).view(-1, 1)
-
-        x = x.repeat(1, nx).unsqueeze(-1)
+        x = torch.Tensor(x)
 
         y = torch.Tensor(y)
-        if not normalizers:
-            x_normalizer = None
-            # x = x_normalizer.encode(x)
-
-            y_normalizer = UnitGaussianNormalizer(y)
-            # y_normalizer = None
-
-            y = y_normalizer.encode(y)
-        else:
-            x_normalizer, y_normalizer = normalizers
-            # x = x_normalizer.encode(x)
-            y = y_normalizer.encode(y)
-
         self.x = x.float()
         self.y = y.float()
-        self.x_normalizer = x_normalizer
-        self.y_normalizer = y_normalizer
 
     def __len__(self):
         return len(self.y)
 
     def __getitem__(self, idx):
         return self.x[idx], self.y[idx]
-
-    def get_normalizers(self):
-        return self.x_normalizer, self.y_normalizer
 
 
 class UnitGaussianNormalizer(object):
