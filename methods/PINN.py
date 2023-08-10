@@ -83,8 +83,9 @@ class PINN(torch.nn.Module):
         u_xx = torch.autograd.grad(u_x, x, torch.ones_like(u_x),
                                    create_graph=True, retain_graph=True, allow_unused=True)[0]
 
-        D = torch.Tensor([self._solver_params['D']])
-        f = torch.Tensor(self._solver_params['source_term'](Y, x))
+        D = torch.Tensor([self._solver_params['D']]).to(self._device)
+        f = torch.Tensor(self._solver_params['source_term'](Y, x)).to(self._device)
+
         res = D * u_xx + f
 
         x0 = torch.zeros_like(Y)
@@ -114,13 +115,12 @@ class PINN(torch.nn.Module):
         U_val = torch.Tensor(U_val).to(self._device)
 
         best_model = copy.deepcopy(self._model.state_dict())
+        d, x = DX_train[:, 0:1], DX_train[:, 1:2]
 
         loading_bar = tqdm(range(epochs), colour='blue')
         for epoch in loading_bar:
 
             self.train()
-
-            d, x = DX_train[:, 0:1], DX_train[:, 1:2]
 
             # Data driven loss
             if data_ratio == 0.:

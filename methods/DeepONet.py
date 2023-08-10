@@ -39,7 +39,7 @@ class DeepONet(torch.nn.Module):
         domain = self._solver_params['domain']
         nx = self._solver_params['nx']
         x = torch.linspace(domain[0], domain[1], nx).view(-1, 1).to(self._device)
-        # CARE
+
         if not torch.is_tensor(D):
             D = torch.Tensor(D)
         D = D.to(self._device)
