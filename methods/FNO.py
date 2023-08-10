@@ -142,11 +142,19 @@ class FNO1d(torch.nn.Module):
         return x
 
     def apply_method(self, x):
-        nx = self._solver_params['nx']
-        x = torch.Tensor(x).view(-1, 1)
-        x = x.repeat(1, nx).unsqueeze(-1).cpu()
-        pred = self.forward(x)
-        return pred
+        if not torch.is_tensor(x):
+            x = torch.Tensor(x)
+
+        try:
+            pred = self.forward(x.view(1, -1).unsqueeze(-1))
+
+        except:
+            nx = self._solver_params['nx']
+            x = torch.Tensor(x).view(-1, 1)
+            x = x.repeat(1, nx).unsqueeze(-1)
+            pred = self.forward(x)
+
+        return pred.detach().cpu()
 
     def fit(self, hyperparameters: dict, D_train, D_val, U_train, U_val):
         torch.manual_seed(self._method_params['seed'])
@@ -238,25 +246,17 @@ class FNO1d(torch.nn.Module):
         return ax
 
     def parity_plot(self, U, D, ax, label, color):
-        xy_normalizer = self._normalizers
+
         nx = U.shape[1]
+
         D = torch.Tensor(D).view(-1, 1)
         D = D.repeat(1, nx).unsqueeze(-1).cpu()
-        if xy_normalizer:
-            x_normalizer, y_normalizer = xy_normalizer
-            if x_normalizer:
-                D = x_normalizer.encode(D)
-            U_pred = self(D).detach().cpu()
-            if y_normalizer:
-                U_pred = y_normalizer.decode(U_pred.squeeze(-1))
-            U_pred.numpy()
-        else:
-            U_pred = self(D).detach().cpu().numpy()
-
-        U_true = U.detach().cpu().numpy()
+        U_pred = self(D).detach().cpu()
+        if torch.is_tensor(U):
+            U = U.detach().numpy()
 
         U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
-        U_true_norm = np.linalg.norm(U_true, 2, axis=1)
+        U_true_norm = np.linalg.norm(U, 2, axis=1)
 
         ax.scatter(U_true_norm, U_pred_norm, s=10, label=label, color=color)
         ax.plot(U_true_norm, U_true_norm, 'r--', alpha=.5)

@@ -179,6 +179,7 @@ class MLP(torch.nn.Module):
     def parity_plot(self, U, D, ax, label, color):
         xy_normalizer = self._normalizers
         D = torch.Tensor(D).cpu()
+        print('Not suppose to come here')
         if xy_normalizer:
             x_normalizer, y_normalizer = xy_normalizer
             if x_normalizer:
