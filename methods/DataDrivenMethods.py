@@ -91,6 +91,10 @@ class DDMethod:
         if self._method_name in ['FNO']:
             return self._method.normalizers
 
+    @property
+    def method(self):
+        return self._method
+
     def load_state_dict(self, path: str):
         if self._method_name in ['MLP', 'PINN', 'DEEPONET', 'FNO', 'MLPINN']:
             checkpoint = torch.load(path, map_location=torch.device('cpu'))

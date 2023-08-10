@@ -143,7 +143,7 @@ class FNO1d(torch.nn.Module):
 
     def apply_method(self, x):
         if not torch.is_tensor(x):
-            x = torch.Tensor(x)
+            x = torch.Tensor(x).to(self.device)
 
         try:
             pred = self.forward(x.view(1, -1).unsqueeze(-1))
@@ -154,7 +154,7 @@ class FNO1d(torch.nn.Module):
             x = x.repeat(1, nx).unsqueeze(-1)
             pred = self.forward(x)
 
-        return pred.detach().cpu()
+        return pred.detach().cpu().numpy()
 
     def fit(self, hyperparameters: dict, D_train, D_val, U_train, U_val):
         torch.manual_seed(self._method_params['seed'])
@@ -188,10 +188,8 @@ class FNO1d(torch.nn.Module):
 
         best_model = copy.deepcopy(self.state_dict())
 
-        loading_bar = tqdm(range(epochs + 1), colour='blue')
+        loading_bar = tqdm(range(epochs), colour='blue')
         for epoch in loading_bar:
-
-            loading_bar.set_description('[epoch: %d ' % (epoch))
 
             self.train()
             loss_train = 0.
@@ -229,6 +227,8 @@ class FNO1d(torch.nn.Module):
             # check if new best model
             if loss_val == min(self._losses['val']):
                 best_model = copy.deepcopy(self.state_dict())
+
+            loading_bar.set_description('[tr : %.1e, val : %.1e]' % (loss_train, loss_val))
 
         self.load_state_dict(best_model)
 
