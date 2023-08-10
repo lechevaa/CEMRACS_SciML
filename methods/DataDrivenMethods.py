@@ -17,8 +17,39 @@ class DDMethod:
         self._method_name = params['method']['method_name']
         self._method = self._find_method()
 
-    def apply_method(self, D):
-        model = self._method.apply_method(D)
+    def apply_method(self, D=None, y=None):
+        model = None
+        if self._method_name == 'POD':
+            model = self._method.apply_method(D=D, y=y)
+        elif self._method_name == 'FNO':
+            if D is not None:
+                model = self._method.apply_method(x=D)
+            elif y is not None:
+                model = self._method.apply_method(x=y)
+
+        elif self._method_name == 'DEEPONET':
+            if D is not None:
+                model = self._method.apply_method(D=D)
+            elif y is not None:
+                model = self._method.apply_method(D=y)
+
+        elif self._method_name == 'MLP':
+            if D is not None:
+                model = self._method.apply_method(D=D)
+            elif y is not None:
+                model = self._method.apply_method(D=y)
+
+        elif self._method_name == 'PINN':
+            if D is not None:
+                model = self._method.apply_method(D=D)
+            elif y is not None:
+                model = self._method.apply_method(D=y)
+
+        elif self._method_name == 'MLPINN':
+            if D is not None:
+                model = self._method.apply_method(D=D)
+            elif y is not None:
+                model = self._method.apply_method(D=y)
         return model
 
     def _find_method(self):

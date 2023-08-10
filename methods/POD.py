@@ -1,5 +1,6 @@
 from typing import Dict
 
+import torch
 from sklearn.decomposition import TruncatedSVD
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,9 +25,13 @@ class POD:
         self._svd_model = self.svd(hyperparameters)
         self._svd_model.fit(U)
 
-    def galerkin(self, V: np.ndarray, D):
+    def galerkin(self, V: np.ndarray, D=None, y=None):
         # new D is contained in params dict
-        self._solver_params['D'] = D
+        if D:
+            self._solver_params['D'] = D
+        if y:
+            self._solver_params['y'] = y
+
         solver = Solver(params=self._params)
         A = solver.A
         b = solver.b
@@ -36,10 +41,10 @@ class POD:
         U_hat = V.T @ alpha
         return U_hat
 
-    def apply_method(self, D):
+    def apply_method(self, D=None, y=None):
         svd_model = self._svd_model
         V = svd_model.components_
-        U_hat = self.galerkin(V, D)
+        U_hat = self.galerkin(V=V, D=D, y=y)
         return U_hat
 
     def plot(self, ax):
@@ -63,17 +68,19 @@ class POD:
         ax.legend()
 
     def parity_plot(self, U, D, ax, label, color):
-        D = D.detach().cpu().numpy()
+        if torch.is_tensor(D):
+            D = D.detach().cpu().numpy()
         U_pred = []
         for d in D:
             U_pred.append(self.apply_method(d))
-       
-        U_true = U.detach().cpu().numpy()
+        if torch.is_tensor(U):
+            U = U.detach().cpu().numpy()
         U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
-        U_true_norm = np.linalg.norm(U_true, 2, axis=1)
+        U_true_norm = np.linalg.norm(U, 2, axis=1)
         ax.plot(U_true_norm, U_true_norm, 'r--', alpha=.5)
         ax.scatter(U_true_norm, U_pred_norm, s=10, label=label, color=color)
 
         ax.set_ylabel('$\|\widehat{\mathbf{u}}_D\|_2$', fontsize=18, labelpad=15)
         ax.set_xlabel('$\|\mathbf{u}_D\|_2$', fontsize=18, labelpad=15)
         return ax
+

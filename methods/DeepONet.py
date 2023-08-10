@@ -39,7 +39,10 @@ class DeepONet(torch.nn.Module):
         domain = self._solver_params['domain']
         nx = self._solver_params['nx']
         x = torch.linspace(domain[0], domain[1], nx).view(-1, 1).to(self._device)
-        D = torch.Tensor(D).view(-1, 1).to(self._device)
+        # CARE
+        if not torch.is_tensor(D):
+            D = torch.Tensor(D)
+        D = D.to(self._device)
 
         return self.forward(D, x).detach().cpu().numpy()
 
@@ -108,13 +111,12 @@ class DeepONet(torch.nn.Module):
 
     def parity_plot(self, U, DX, ax, label, color):
 
-        U_pred_norms = []
-        nx = self._solver_params['nx']
-        U = U.detach().cpu().numpy()
-        U_true_norms = [np.linalg.norm(U[nx*i: nx*(i+1)], 2) for i in range(U.shape[0]//nx)]
-        for d in np.unique(DX[:, 0:1]):
-            U_pred_temp = self.apply_method([d])
-            U_pred_norms.append(np.linalg.norm(U_pred_temp, 2))
+        if torch.is_tensor(U):
+            U = U.detach().numpy()
+        U_true_norms = np.linalg.norm(U, 2, axis=1)
+
+        U_pred = self.apply_method(DX[np.sort(np.unique(DX, return_index=True)[1])])
+        U_pred_norms = np.linalg.norm(U_pred, 2, axis=1)
         ax.scatter(U_true_norms, U_pred_norms, s=10, label=label, color=color)
         ax.plot(U_true_norms, U_true_norms, 'r--', alpha=.5)
 
