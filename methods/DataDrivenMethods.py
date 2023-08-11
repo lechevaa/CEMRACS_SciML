@@ -17,39 +17,13 @@ class DDMethod:
         self._method_name = params['method']['method_name']
         self._method = self._find_method()
 
-    def apply_method(self, D=None, y=None):
+    def apply_method(self, phi, D=None, y=None):
         model = None
-        if self._method_name == 'POD':
-            model = self._method.apply_method(D=D, y=y)
-        elif self._method_name == 'FNO':
-            if D is not None:
-                model = self._method.apply_method(x=D)
-            elif y is not None:
-                model = self._method.apply_method(x=y)
-
-        elif self._method_name == 'DEEPONET':
-            if D is not None:
-                model = self._method.apply_method(D=D)
-            elif y is not None:
-                model = self._method.apply_method(D=y)
-
-        elif self._method_name == 'MLP':
-            if D is not None:
-                model = self._method.apply_method(D=D)
-            elif y is not None:
-                model = self._method.apply_method(D=y)
-
-        elif self._method_name == 'PINN':
-            if D is not None:
-                model = self._method.apply_method(D=D)
-            elif y is not None:
-                model = self._method.apply_method(D=y)
-
-        elif self._method_name == 'MLPINN':
-            if D is not None:
-                model = self._method.apply_method(D=D)
-            elif y is not None:
-                model = self._method.apply_method(D=y)
+        # TODO: Data homogeneization for all methods
+        if self._method_name in ['POD', 'MLP', 'PINN', 'DEEPONET', 'FNO', 'MLPINN']:
+            model = self._method.apply_method(phi=phi, D=D, Y=y)
+        else:
+            print(f"model not handled yet got {self._method_name}")
         return model
 
     def _find_method(self):
@@ -72,8 +46,8 @@ class DDMethod:
     def plot(self, ax):
         return self._method.plot(ax)
 
-    def parity_plot(self, U, D, ax, label, color):
-        return self._method.parity_plot(U, D, ax, label, color)
+    def parity_plot(self, U, phi, ax, label, color, D=None, Y=None):
+        return self._method.parity_plot(U, phi, ax, label, color, D=D, Y=Y)
 
     def fit(self, **args):
         print(f'Fitting {self._method_name}')

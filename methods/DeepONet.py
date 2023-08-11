@@ -30,21 +30,33 @@ class DeepONet(torch.nn.Module):
     def loss_dict(self):
         return self._losses
 
-    def forward(self, D, x):
-        weights = self.branch(D)
+    def forward(self, phi, x):
+        weights = self.branch(phi)
         basis = self.trunk(x)
         return torch.matmul(weights, basis.T)
 
-    def apply_method(self, D):
+    def apply_method(self, phi, D=None, Y=None):
         domain = self._solver_params['domain']
         nx = self._solver_params['nx']
         x = torch.linspace(domain[0], domain[1], nx).view(-1, 1).to(self._device)
 
-        if not torch.is_tensor(D):
-            D = torch.Tensor(D)
-        D = D.to(self._device)
+        if not torch.is_tensor(phi):
+            phi = torch.Tensor(phi)
 
-        return self.forward(D, x).detach().cpu().numpy()
+        if D is not None:
+            if not torch.is_tensor(D):
+                D = torch.Tensor(D)
+            if torch.equal(phi, D):
+                pass
+        if Y is not None:
+            if not torch.is_tensor(Y):
+                Y = torch.Tensor(Y)
+            if torch.equal(phi, Y):
+                phi = self._solver_params['source_term'](phi, x.view(1, -1))
+
+        phi = phi.to(self._device)
+
+        return self.forward(phi, x).detach().cpu().numpy()
 
     @staticmethod
     def MSE(pred, true=0):
@@ -109,13 +121,22 @@ class DeepONet(torch.nn.Module):
         ax.legend()
         return
 
-    def parity_plot(self, U, DX, ax, label, color):
+    def parity_plot(self, U, phi_X, ax, label, color, D=None, Y=None):
 
         if torch.is_tensor(U):
             U = U.detach().numpy()
         U_true_norms = np.linalg.norm(U, 2, axis=1)
 
-        U_pred = self.apply_method(DX[np.sort(np.unique(DX, return_index=True)[1])])
+        U_pred = None
+
+        if D is not None:
+            if torch.equal(phi_X, D):
+                U_pred = self.apply_method(phi=phi_X[np.sort(np.unique(phi_X, return_index=True)[1])],
+                                           D=D, Y=Y)
+        if Y is not None:
+            if torch.equal(phi_X, Y):
+                U_pred = self.apply_method(phi=phi_X, D=D, Y=Y)
+
         U_pred_norms = np.linalg.norm(U_pred, 2, axis=1)
         ax.scatter(U_true_norms, U_pred_norms, s=10, label=label, color=color)
         ax.plot(U_true_norms, U_true_norms, 'r--', alpha=.5)

@@ -141,18 +141,25 @@ class FNO1d(torch.nn.Module):
 
         return x
 
-    def apply_method(self, x):
-        if not torch.is_tensor(x):
-            x = torch.Tensor(x).to(self.device)
+    def apply_method(self, phi, D=None, Y=None):
+        if not torch.is_tensor(phi):
+            phi = torch.Tensor(phi).to(self.device)
+        pred = None
+        if D is not None:
+            if not torch.is_tensor(D):
+                D = torch.Tensor(D).to(self.device)
+            if torch.equal(phi, D):
+                nx = self._solver_params['nx']
+                phi = torch.Tensor(phi).view(-1, 1)
+                phi = phi.repeat(1, nx).unsqueeze(-1)
+                pred = self.forward(phi)
 
-        try:
-            pred = self.forward(x.view(1, -1).unsqueeze(-1))
+        if Y is not None:
+            if not torch.is_tensor(Y):
+                Y = torch.Tensor(Y).to(self.device)
 
-        except:
-            nx = self._solver_params['nx']
-            x = torch.Tensor(x).view(-1, 1)
-            x = x.repeat(1, nx).unsqueeze(-1)
-            pred = self.forward(x)
+            if torch.equal(phi, Y):
+                pred = self.forward(phi.view(1, -1).unsqueeze(-1))
 
         return pred.detach().cpu().numpy()
 
@@ -245,13 +252,13 @@ class FNO1d(torch.nn.Module):
         ax.legend()
         return ax
 
-    def parity_plot(self, U, D, ax, label, color):
+    def parity_plot(self, U, phi, ax, label, color, D=None, Y=None):
 
         nx = U.shape[1]
 
-        D = torch.Tensor(D).view(-1, 1)
-        D = D.repeat(1, nx).unsqueeze(-1).cpu()
-        U_pred = self(D).detach().cpu()
+        phi = torch.Tensor(phi).view(-1, 1)
+        phi = phi.repeat(1, nx).unsqueeze(-1).cpu()
+        U_pred = self(phi).detach().cpu()
         if torch.is_tensor(U):
             U = U.detach().numpy()
 

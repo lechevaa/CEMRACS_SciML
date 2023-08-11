@@ -27,9 +27,13 @@ class POD:
 
     def galerkin(self, V: np.ndarray, D=None, y=None):
         # new D is contained in params dict
-        if D:
+        if D is not None:
+            if torch.is_tensor(D):
+                D = D.numpy()
             self._solver_params['D'] = D
-        if y:
+        if y is not None:
+            if torch.is_tensor(y):
+                y = y.numpy()
             self._solver_params['y'] = y
 
         solver = Solver(params=self._params)
@@ -41,10 +45,11 @@ class POD:
         U_hat = V.T @ alpha
         return U_hat
 
-    def apply_method(self, D=None, y=None):
+    def apply_method(self, phi, D=None, Y=None):
+        # phi useless atm but certainly later
         svd_model = self._svd_model
         V = svd_model.components_
-        U_hat = self.galerkin(V=V, D=D, y=y)
+        U_hat = self.galerkin(V=V, D=D, y=Y)
         return U_hat
 
     def plot(self, ax):
@@ -67,16 +72,23 @@ class POD:
 
         ax.legend()
 
-    def parity_plot(self, U, D, ax, label, color):
-        if torch.is_tensor(D):
-            D = D.detach().cpu().numpy()
+    def parity_plot(self, U, phi, ax, label, color, D=None, Y=None):
+        if torch.is_tensor(phi):
+            phi = phi.detach().cpu().numpy()
         U_pred = []
-        for d in D:
-            U_pred.append(self.apply_method(d))
+        for i, p in enumerate(phi):
+            d, y = None, None
+            if D is not None:
+                d = D[i]
+            if Y is not None:
+                y = Y[i]
+
+            U_pred.append(self.apply_method(phi=p, D=d, Y=y))
         if torch.is_tensor(U):
             U = U.detach().cpu().numpy()
         U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
         U_true_norm = np.linalg.norm(U, 2, axis=1)
+
         ax.plot(U_true_norm, U_true_norm, 'r--', alpha=.5)
         ax.scatter(U_true_norm, U_pred_norm, s=10, label=label, color=color)
 

@@ -23,21 +23,21 @@ class PINN(torch.nn.Module):
         self._model = MLP(params=params)
         self._device = self._model.device
 
-    def forward(self, D, x):
-        Dx = torch.cat([D, x], dim=1)
-        return self._model(Dx)
+    def forward(self, phi, x):
+        Phi_x = torch.cat([phi, x], dim=1)
+        return self._model(Phi_x)
 
-    def apply_method(self, D):
+    def apply_method(self, phi, D=None, Y=None):
         domain = self._solver_params['domain']
         nx = self._solver_params['nx']
 
-        D = torch.Tensor(D).reshape(-1, 1)
-        D_nn = D.repeat(1, nx).reshape(-1, 1).to(self._device)
+        phi = torch.Tensor(phi).reshape(-1, 1)
+        Phi_nn = phi.repeat(1, nx).reshape(-1, 1).to(self._device)
 
         x = torch.linspace(domain[0], domain[1], nx).view(-1, 1)
-        x_nn = x.repeat(len(D), 1).to(self._device)
+        x_nn = x.repeat(len(phi), 1).to(self._device)
 
-        return self.forward(D_nn, x_nn).detach().cpu().numpy()
+        return self.forward(Phi_nn, x_nn).detach().cpu().numpy()
 
     @property
     def loss_dict(self):
@@ -191,16 +191,16 @@ class PINN(torch.nn.Module):
 
         return
 
-    def parity_plot(self, U, DX, ax, label, color):
+    def parity_plot(self, U, phi_X, ax, label, color, D=None, Y=None):
         U_pred_norms = []
         if torch.is_tensor(U):
             U = U.detach().numpy()
         if torch.is_tensor(U):
-            DX = DX.detach().numpy()
+            phi_X = phi_X.detach().numpy()
         U_true_norms = np.linalg.norm(U, 2, axis=1)
 
-        for dx in DX[np.sort(np.unique(DX, return_index=True)[1])]:
-            U_pred_temp = self.apply_method([dx])
+        for px in phi_X[np.sort(np.unique(phi_X, return_index=True)[1])]:
+            U_pred_temp = self.apply_method(phi=[px])
             U_pred_norms.append(np.linalg.norm(U_pred_temp, 2))
 
         ax.scatter(U_true_norms, U_pred_norms, s=10, label=label, color=color)
