@@ -34,6 +34,8 @@ class POD:
         if y is not None:
             if torch.is_tensor(y):
                 y = y.numpy()
+            if len(y) == 1:
+                y = y[0]
             self._solver_params['y'] = y
 
         solver = Solver(params=self._params)
@@ -46,7 +48,6 @@ class POD:
         return U_hat
 
     def apply_method(self, phi, D=None, Y=None):
-        # phi useless atm but certainly later
         svd_model = self._svd_model
         V = svd_model.components_
         U_hat = self.galerkin(V=V, D=D, y=Y)
@@ -60,8 +61,10 @@ class POD:
         x = np.arange(n_components) + 1
         evr = self._svd_model.explained_variance_ratio_
         # ax.hist(evr, bins=x, alpha=0.5, color="blue", align='left', )
+        evr = np.sort(evr)[::-1]
         x = np.insert(x, 0, 0)
         evr = np.insert(evr, 0, 0)
+
         ax.plot(x, evr.cumsum(), c='blue', marker='o', lw=2, label='Cumulative explained variance', zorder=1)
         ax.scatter(x, evr, color="red", alpha=0.8, label='Explained variance', zorder=2)
         ax.set_xlim([-0.5, x[-1] + 1.5])
@@ -75,6 +78,11 @@ class POD:
     def parity_plot(self, U, phi, ax, label, color, D=None, Y=None):
         if torch.is_tensor(phi):
             phi = phi.detach().cpu().numpy()
+        if torch.is_tensor(D):
+            D = D.detach().cpu().numpy()
+        if torch.is_tensor(Y):
+            Y = Y.detach().cpu().numpy()
+
         U_pred = []
         for i, p in enumerate(phi):
             d, y = None, None
@@ -82,10 +90,11 @@ class POD:
                 d = D[i]
             if Y is not None:
                 y = Y[i]
-
             U_pred.append(self.apply_method(phi=p, D=d, Y=y))
+
         if torch.is_tensor(U):
             U = U.detach().cpu().numpy()
+
         U_pred_norm = np.linalg.norm(U_pred, 2, axis=1)
         U_true_norm = np.linalg.norm(U, 2, axis=1)
 

@@ -31,7 +31,7 @@ class PINN(torch.nn.Module):
         domain = self._solver_params['domain']
         nx = self._solver_params['nx']
 
-        phi = torch.Tensor(phi).reshape(-1, 1)
+        phi = torch.Tensor(np.array(phi)).reshape(-1, 1)
         Phi_nn = phi.repeat(1, nx).reshape(-1, 1).to(self._device)
 
         x = torch.linspace(domain[0], domain[1], nx).view(-1, 1)
@@ -195,7 +195,7 @@ class PINN(torch.nn.Module):
         U_pred_norms = []
         if torch.is_tensor(U):
             U = U.detach().numpy()
-        if torch.is_tensor(U):
+        if torch.is_tensor(phi_X):
             phi_X = phi_X.detach().numpy()
         U_true_norms = np.linalg.norm(U, 2, axis=1)
 
