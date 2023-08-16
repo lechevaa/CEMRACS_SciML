@@ -128,12 +128,17 @@ class DeepONet(torch.nn.Module):
         U_true_norms = np.linalg.norm(U, 2, axis=1)
 
         U_pred = None
-
+        if not torch.is_tensor(phi_X):
+            phi_X = torch.Tensor(phi_X)
         if D is not None:
+            if not torch.is_tensor(D):
+                D = torch.Tensor(D)
             if torch.equal(phi_X, D):
                 U_pred = self.apply_method(phi=phi_X[np.sort(np.unique(phi_X, return_index=True)[1])],
                                            D=D, Y=Y)
         if Y is not None:
+            if not torch.is_tensor(Y):
+                Y = torch.Tensor(Y)
             if torch.equal(phi_X, Y):
                 U_pred = self.apply_method(phi=phi_X, D=D, Y=Y)
 

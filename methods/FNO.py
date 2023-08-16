@@ -146,6 +146,7 @@ class FNO1d(torch.nn.Module):
             phi = torch.Tensor(phi).to(self.device)
         pred = None
         if D is not None:
+
             if not torch.is_tensor(D):
                 D = torch.Tensor(D).to(self.device)
             if torch.equal(phi, D):
@@ -159,7 +160,16 @@ class FNO1d(torch.nn.Module):
                 Y = torch.Tensor(Y).to(self.device)
 
             if torch.equal(phi, Y):
-                pred = self.forward(phi.view(1, -1).unsqueeze(-1))
+                domain = self._solver_params['domain']
+                nx = self._solver_params['nx']
+                x = torch.linspace(domain[0], domain[1], nx).to(self.device)
+                phi = self._solver_params['source_term'](phi, x)
+                # single element evaluation
+                if len(list(phi.shape)) == 1:
+                    pred = self.forward(phi.view(1, -1).unsqueeze(-1))
+                # multiple element evaluation
+                elif len(list(phi.shape)) == 2:
+                    pred = self.forward(phi.unsqueeze(-1))
 
         return pred.detach().cpu().numpy()
 
@@ -254,11 +264,7 @@ class FNO1d(torch.nn.Module):
 
     def parity_plot(self, U, phi, ax, label, color, D=None, Y=None):
 
-        nx = U.shape[1]
-
-        phi = torch.Tensor(phi).view(-1, 1)
-        phi = phi.repeat(1, nx).unsqueeze(-1).cpu()
-        U_pred = self(phi).detach().cpu()
+        U_pred = self.apply_method(phi=phi, D=D, Y=Y)
         if torch.is_tensor(U):
             U = U.detach().numpy()
 
