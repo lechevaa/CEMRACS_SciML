@@ -3,7 +3,6 @@ from typing import Dict
 import numpy as np
 import torch
 import torch.optim as optim
-from tqdm import tqdm
 
 from methods.MLP import MLP
 
@@ -41,20 +40,20 @@ class DeepONet(torch.nn.Module):
         x = torch.linspace(domain[0], domain[1], nx).view(-1, 1).to(self._device)
 
         if not torch.is_tensor(phi):
-            phi = torch.Tensor(phi)
+            phi = torch.Tensor(phi).to(self._device)
 
         if D is not None:
             if not torch.is_tensor(D):
-                D = torch.Tensor(D)
+                D = torch.Tensor(D).to(self._device)
             if torch.equal(phi, D):
                 pass
         if Y is not None:
             if not torch.is_tensor(Y):
-                Y = torch.Tensor(Y)
+                Y = torch.Tensor(Y).to(self._device)
             if torch.equal(phi, Y):
                 phi = self._solver_params['source_term'](phi, x.view(1, -1))
 
-        phi = phi.to(self._device)
+        #phi = phi.to(self._device)
 
         return self.forward(phi, x).detach().cpu().numpy()
 
@@ -68,8 +67,9 @@ class DeepONet(torch.nn.Module):
         lr = hyperparameters['lr']
         optim_name = hyperparameters['optimizer']
         optimizer = getattr(optim, optim_name)(self.parameters(), lr=lr)
-        X = torch.linspace(0., 1., self._solver_params['nx']).view(-1, 1)
+
         D_train = torch.Tensor(D_train).to(self._device)
+        X = torch.linspace(0., 1., self._solver_params['nx']).view(-1, 1)
         X = X.to(self._device)
         U_train = torch.Tensor(U_train).to(self._device)
 
@@ -81,7 +81,7 @@ class DeepONet(torch.nn.Module):
         loading_bar = tqdm(range(epochs), colour='blue')
         for epoch in loading_bar:
 
-            # Training of the model
+            # Training the model
             self.train()
 
             U_pred = self.forward(D_train, X)

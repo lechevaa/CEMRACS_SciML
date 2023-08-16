@@ -101,7 +101,7 @@ class PINN(torch.nn.Module):
         return self.MSE(u_pred, u_ex)
 
     def fit(self, hyperparameters: dict, DX_train, DX_val, U_val, U_train=None, data_ratio=1., physics_ratio=1.,
-            loss=None):
+            loss=None, w_r=100):
 
         epochs = hyperparameters['epochs']
         lr = hyperparameters['lr']
@@ -141,7 +141,7 @@ class PINN(torch.nn.Module):
                     l_b, l_r = torch.zeros(1, device=self._device), torch.zeros(1, device=self._device)
 
             # Total loss
-            l_tot = data_ratio * l_d + physics_ratio * (l_b + l_r)
+            l_tot = data_ratio * l_d + physics_ratio * (l_b + w_r * l_r)
             l_tot.backward()
             optimizer.step()
             optimizer.zero_grad()
@@ -163,7 +163,7 @@ class PINN(torch.nn.Module):
                 best_model = copy.deepcopy(self._model.state_dict())
 
             loading_bar.set_description('[tr : %.1e, val : %.1e]' % (l_tot, l_val))
-        self._model.load_state_dict(best_model)
+        #self._model.load_state_dict(best_model)
 
     def plot(self, ax):
         ax.grid(True)
