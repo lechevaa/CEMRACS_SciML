@@ -1,106 +1,76 @@
 import numpy as np
 import scipy
 
-from typing import Dict
-
-
 class PoissonSolver:
-    def __init__(self, params: Dict):
-        self._params = params
-        self._equation = params['equation']
-        # 1D domain should be: [a, b] with a > b
-        self._domain = params['domain']
-        self._nx = params['nx']
-
-        # D is scalar for now
-        self._D = params['D']
-        self._x = np.linspace(self._domain[0], self._domain[1], self._nx)
+    
+    def __init__(self, params: dict):
         
-        # source term init
-        self._y = None
-        self._source_term = self.init_source_term()
-        self._fx = self.init_fx()
-
-        assert True
-
+        self.params = params
+        
+        try :
+            self.equation = params['equation']
+        except :
+            pass
+        
+        self.domain = params['domain']
+        
+        self.nx = params['nx']
+        self.x = np.linspace(*self.domain, self.nx)
+        
+    def __A(self, D):
+        
+        # The approximation of D in the midpoints of the grid x
+        D_ = (D[1:] + D[:-1])/2
+        
+        ds = np.hstack([0, D_[1:]])
+        di = np.hstack([D_[:-1], 0])
+        d = np.hstack([1, - (D_[1:] + D_[:-1]), 1])
+        return scipy.sparse.diags([di, d, ds], [-1, 0, 1])
+    
     @property
-    def params(self):
-        return self._params
-
+    def A(self) :
+        return self.__A(self.params['D'])
+    
+    def __B(self, F):
+        
+        a, b = self.domain
+        h = (b - a) / (self.nx - 1)
+        B = - (h**2) *  F
+        B[0], B[-1] = 0., 0.
+        return B
+    
     @property
-    def equation(self):
-        return self._equation
+    def B(self):
+        return self.__B(self.params['F'])
 
+    def __solve(self, A, B) -> np.ndarray:
+        return scipy.sparse.linalg.spsolve(A.tocsc(), B)
+    
     @property
-    def x(self):
-        return self._x
-
-    @property
-    def fx(self):
-        return self._fx
-
-    @property
-    def D(self):
-        return self._D
-
-    @property
-    def Y(self):
-        return self._y
-
-    @property
-    def A(self):
-        return self._A_assembly()
-
-    @property
-    def b(self):
-        return self._F()
-
-    def _A_assembly(self):
-        nx = self._nx
-        Ones = np.ones(nx - 2)
-
-        d = np.hstack([1, -2 * Ones, 1])
-        ds = np.hstack([0, Ones])
-        di = np.hstack([Ones, 0])
-
-        A_mat = scipy.sparse.diags([di, d, ds], [-1, 0, 1])
-        return A_mat
-
-    def _F(self):
-        a, b = self._domain
-        nx = self._nx
-        dx = (b - a) / (nx - 1)
-        F = - (dx ** 2 / self._D) * self._fx
-        F[0], F[-1] = 0., 0.
-        return F
-
-    def solve(self) -> np.ndarray:
-        A = self._A_assembly().tocsc()
-        b = self._F()
-        U = scipy.sparse.linalg.spsolve(A, b)
-        return U
-
-    def update(self, params):
-        self._params = params
-        self._equation = params['equation']
-        # 1D domain should be: [a, b] with a > b
-        self._domain = params['domain']
-        self._nx = params['nx']
-        self._source_term = self.init_source_term()
-        # D is scalar for now
-        self._D = params['D']
-        self._x = np.linspace(self._domain[0], self._domain[1], self._nx)
-        self._fx = self.init_fx()
-
-    def init_source_term(self):
-        if 'source_term' in self._params.keys():
-            return self._params['source_term']
+    def solve(self) :
+        return self.__solve(self.A, self.B)
+    
+    def Vsolve(self, vect: str, D = None, F = None) -> np.ndarray:
+        
+        U = []
+        if vect == 'D':
+            for d in D :
+                A = self.__A(d)
+                U.append(self.__solve(A, self.B))
+            return np.stack(U)
+        
+        elif vect == 'F':
+            for f in F :
+                B = self.__B(f)
+                U.append(self.__solve(self.A, B))
+            return np.stack(U)
+        
+        elif vect == 'DF' and len(D) == len(F):
+            for i, d in enumerate(D) :
+                A = self.__A(d)
+                B = self.__B(F[i])
+                U.append(self.__solve(A, B))
+            return np.stack(U)
+        
         else:
-            return np.ones_like
-
-    def init_fx(self):
-        if 'source_term' in self._params.keys() and 'y' in self._params.keys():
-            self._y = self._params['y']
-            return self._source_term(self._params['y'], self._x)
-        else:
-            return self._source_term(self._x)
+            raise Exception(" vect must be either 'D', 'F' or 'DF' ")
