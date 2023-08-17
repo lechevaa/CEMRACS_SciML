@@ -151,8 +151,22 @@ class FNO1d(torch.nn.Module):
                 D = torch.Tensor(D).to(self.device)
             if torch.equal(phi, D):
                 nx = self._solver_params['nx']
-                phi = torch.Tensor(phi).view(-1, 1)
-                phi = phi.repeat(1, nx).unsqueeze(-1)
+                # single D value evaluation
+                if len(phi) == 1:
+                    print('case 1')
+                    phi = torch.Tensor(phi).view(-1, 1)
+                    phi = phi.repeat(1, nx).unsqueeze(-1)
+                # multiple D value evaluation (risky test)
+                elif len(phi) == nx:
+                    print('case 2')
+                    phi = torch.Tensor(phi).view(1, -1).unsqueeze(-1)
+                # single + multiple D of size (Nd, Nx) evaluation
+                elif phi.shape[1] == 1:
+                    print('case 3')
+                    phi = torch.Tensor(phi).view(-1, 1)
+                    phi = phi.repeat(1, nx).unsqueeze(-1)
+                else:
+                    phi = torch.Tensor(phi).unsqueeze(-1)
                 pred = self.forward(phi)
 
         if Y is not None:

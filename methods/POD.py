@@ -5,7 +5,7 @@ from sklearn.decomposition import TruncatedSVD
 import numpy as np
 import matplotlib.pyplot as plt
 
-from solvers import Solver
+from solvers import Solver, PoissonSolver
 
 
 class POD:
@@ -36,11 +36,14 @@ class POD:
                 y = y.numpy()
             if len(y) == 1:
                 y = y[0]
-            self._solver_params['y'] = y
+            domain = self._solver_params['domain']
+            nx = self._solver_params['nx']
+            x = torch.linspace(domain[0], domain[1], nx)
+            self._solver_params['F'] = self._solver_params['source_term'](y, x)
 
-        solver = Solver(params=self._params)
+        solver = PoissonSolver(params=self._solver_params)
         A = solver.A
-        b = solver.b
+        b = solver.B
         A_hat = V @ A @ V.T
         b_hat = V @ b
         alpha = np.linalg.solve(A_hat, b_hat)
