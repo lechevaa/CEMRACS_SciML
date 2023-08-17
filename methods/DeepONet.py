@@ -134,8 +134,12 @@ class DeepONet(torch.nn.Module):
             if not torch.is_tensor(D):
                 D = torch.Tensor(D)
             if torch.equal(phi_X, D):
-                U_pred = self.apply_method(phi=phi_X[np.sort(np.unique(phi_X, return_index=True)[1])],
-                                           D=D, Y=Y)
+                if phi_X.shape[0] == self._solver_params['nx']:
+                    U_pred = self.apply_method(phi=phi_X[np.sort(np.unique(phi_X, return_index=True)[1])],
+                                               D=D, Y=Y)
+                else:
+                    U_pred = self.apply_method(phi=phi_X)
+
         if Y is not None:
             if not torch.is_tensor(Y):
                 Y = torch.Tensor(Y)

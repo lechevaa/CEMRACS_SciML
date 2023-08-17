@@ -32,11 +32,14 @@ class PINN(torch.nn.Module):
         nx = self._solver_params['nx']
 
         phi = torch.Tensor(np.array(phi)).reshape(-1, 1)
-        Phi_nn = phi.repeat(1, nx).reshape(-1, 1).to(self._device)
-
         x = torch.linspace(domain[0], domain[1], nx).view(-1, 1)
-        x_nn = x.repeat(len(phi), 1).to(self._device)
 
+        if len(phi) == 1:
+            Phi_nn = phi.repeat(1, nx).reshape(-1, 1).to(self._device)
+            x_nn = x.repeat(len(phi), 1).to(self._device)
+        else:
+            Phi_nn = phi.reshape(-1, 1).to(self._device)
+            x_nn = x.to(self._device)
         return self.forward(Phi_nn, x_nn).detach().cpu().numpy()
 
     @property
@@ -199,9 +202,15 @@ class PINN(torch.nn.Module):
             phi_X = phi_X.detach().numpy()
         U_true_norms = np.linalg.norm(U, 2, axis=1)
 
-        for px in phi_X[np.sort(np.unique(phi_X, return_index=True)[1])]:
-            U_pred_temp = self.apply_method(phi=[px])
-            U_pred_norms.append(np.linalg.norm(U_pred_temp, 2))
+        if phi_X.shape[0] == self._solver_params['nx']:
+            for px in phi_X[np.sort(np.unique(phi_X, return_index=True)[1])]:
+                U_pred_temp = self.apply_method(phi=[px])
+                U_pred_norms.append(np.linalg.norm(U_pred_temp, 2))
+
+        else:
+            for px in phi_X:
+                U_pred_temp = self.apply_method(phi=[px])
+                U_pred_norms.append(np.linalg.norm(U_pred_temp, 2))
 
         ax.scatter(U_true_norms, U_pred_norms, s=10, label=label, color=color)
         ax.plot(U_true_norms, U_true_norms, 'r--', alpha=.5)
