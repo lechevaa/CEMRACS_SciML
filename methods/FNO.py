@@ -153,16 +153,13 @@ class FNO1d(torch.nn.Module):
                 nx = self._solver_params['nx']
                 # single D value evaluation
                 if len(phi) == 1:
-                    print('case 1')
                     phi = torch.Tensor(phi).view(-1, 1)
                     phi = phi.repeat(1, nx).unsqueeze(-1)
                 # multiple D value evaluation (risky test)
                 elif len(phi) == nx:
-                    print('case 2')
                     phi = torch.Tensor(phi).view(1, -1).unsqueeze(-1)
                 # single + multiple D of size (Nd, Nx) evaluation
                 elif phi.shape[1] == 1:
-                    print('case 3')
                     phi = torch.Tensor(phi).view(-1, 1)
                     phi = phi.repeat(1, nx).unsqueeze(-1)
                 else:
