@@ -1,7 +1,7 @@
 import torch
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-PARAMS_SOLVER = {'equation': 'Poisson', 'domain': [0., 1.], 'D': 1e-3, 'nx': 101}
+PARAMS_SOLVER = {'equation': 'Poisson', 'domain': [0., 1.], 'D': None, 'nx': 101}
 
 PARAMS_METHODS = {'POD': {'method_name': 'POD'},
                   'MLP': {'method_name': 'MLP',

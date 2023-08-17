@@ -53,7 +53,7 @@ class DeepONet(torch.nn.Module):
             if torch.equal(phi, Y):
                 phi = self._solver_params['source_term'](phi, x.view(1, -1))
 
-        #phi = phi.to(self._device)
+        phi = phi.to(self._device)
 
         return self.forward(phi, x).detach().cpu().numpy()
 
