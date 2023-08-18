@@ -5,7 +5,7 @@ PARAMS_SOLVER = {'equation': 'Poisson', 'domain': [0., 1.], 'D': 1e-3, 'nx': 101
 
 PARAMS_METHODS = {'POD': {'method_name': 'POD'},
                   'MLP': {'method_name': 'MLP',
-                          'layer_dims': [2, 24, 28, 11, 18, 21, 1] ,
+                          'layer_dims': [2, 40, 33, 70, 89, 55, 118, 1] ,
                           'activations': 'tanh',
                           'device': device, 'seed': 123},
                   'DEEPONET': {'method_name': 'DEEPONET',
@@ -31,10 +31,10 @@ PARAMS_METHODS = {'POD': {'method_name': 'POD'},
                   }
 
 
-n_epochs = 10
+n_epochs = 20000
 HYPERPARAMS_METHODS = {'POD': {'n_components': 10},
-                       'MLP': {'lr': 4e-3, 'epochs': n_epochs, 'optimizer': 'Adam'},
-                       'DEEPONET': {'lr': 1e-03, 'epochs': n_epochs, 'optimizer': 'Adam',
+                       'MLP': {'lr': 1e-3, 'epochs': n_epochs, 'optimizer': 'Adam'},
+                       'DEEPONET': {'lr': 1e-04, 'epochs': n_epochs, 'optimizer': 'Adam',
                                     'device': device},
                        'PINN': {'lr': 4e-3, 'epochs': n_epochs, 'optimizer': 'Adam'},
                        'MLPINN': {'lr': 1e-4, 'epochs': n_epochs, 'optimizer': 'Adam'},
