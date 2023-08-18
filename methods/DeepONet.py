@@ -42,12 +42,15 @@ class DeepONet(torch.nn.Module):
         if not torch.is_tensor(phi):
             phi = torch.Tensor(phi).to(self._device)
 
-        if D is not None:
+        if D is not None and Y is not None:
+            pass
+
+        elif D is not None:
             if not torch.is_tensor(D):
                 D = torch.Tensor(D).to(self._device)
             if torch.equal(phi, D):
                 pass
-        if Y is not None:
+        elif Y is not None:
             if not torch.is_tensor(Y):
                 Y = torch.Tensor(Y).to(self._device)
             if torch.equal(phi, Y):

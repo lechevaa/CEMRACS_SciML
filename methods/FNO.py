@@ -145,8 +145,11 @@ class FNO1d(torch.nn.Module):
         if not torch.is_tensor(phi):
             phi = torch.Tensor(phi).to(self.device)
         pred = None
-        if D is not None:
 
+        if D is not None and Y is not None:
+            assert phi.shape[2] == 2
+            pred = self.forward(phi).unsqueeze(-1)
+        elif D is not None:
             if not torch.is_tensor(D):
                 D = torch.Tensor(D).to(self.device)
             if torch.equal(phi, D):
@@ -166,7 +169,7 @@ class FNO1d(torch.nn.Module):
                     phi = torch.Tensor(phi).unsqueeze(-1)
                 pred = self.forward(phi)
 
-        if Y is not None:
+        elif Y is not None:
             if not torch.is_tensor(Y):
                 Y = torch.Tensor(Y).to(self.device)
 

@@ -118,7 +118,10 @@ class PINN(torch.nn.Module):
         U_val = torch.Tensor(U_val).to(self._device)
 
         best_model = copy.deepcopy(self._model.state_dict())
-        d, x = DX_train[:, 0:1], DX_train[:, 1:2]
+        if DX_val.shape[1] == 2:
+            d, x = DX_train[:, 0:1], DX_train[:, 1:2]
+        elif DX_val.shape[1] == 3:
+            d, x = DX_train[:, 0:2], DX_train[:, 2:3]
 
         loading_bar = tqdm(range(epochs), colour='blue')
         for epoch in loading_bar:
