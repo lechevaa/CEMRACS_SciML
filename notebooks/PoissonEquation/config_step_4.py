@@ -5,8 +5,8 @@ PARAMS_SOLVER = {'equation': 'Poisson', 'domain': [0., 1.], 'D': None, 'nx': 101
 
 PARAMS_METHODS = {'POD': {'method_name': 'POD'},
                   'MLP': {'method_name': 'MLP',
-                          'layer_dims': [3, 24, 28, 11, 18, 21, 1] ,
-                          'activations': 'tanh',
+                          'layer_dims': [3, 21, 105, 119, 21, 69, 55, 1],
+                          'activations': ['relu', 'relu', 'relu', 'tanh', 'tanh', 'relu'],
                           'device': device, 'seed': 123},
                   'DEEPONET': {'method_name': 'DEEPONET',
                                'branch': {'layer_dims': [202, 525, 265, 400, 215],
@@ -31,9 +31,9 @@ PARAMS_METHODS = {'POD': {'method_name': 'POD'},
                   }
 
 
-n_epochs = 10
+n_epochs = 10000
 HYPERPARAMS_METHODS = {'POD': {'n_components': 10},
-                       'MLP': {'lr': 4e-3, 'epochs': n_epochs, 'optimizer': 'Adam'},
+                       'MLP': {'lr': 3e-4, 'epochs': n_epochs, 'optimizer': 'Adam'},
                        'DEEPONET': {'lr': 1e-03, 'epochs': n_epochs, 'optimizer': 'Adam',
                                     'device': device},
                        'PINN': {'lr': 4e-3, 'epochs': n_epochs, 'optimizer': 'Adam'},
