@@ -33,13 +33,19 @@ class PINN(torch.nn.Module):
 
         phi = torch.Tensor(np.array(phi)).reshape(-1, 1)
         x = torch.linspace(domain[0], domain[1], nx).view(-1, 1)
-
         if len(phi) == 1:
             Phi_nn = phi.repeat(1, nx).reshape(-1, 1).to(self._device)
             x_nn = x.repeat(len(phi), 1).to(self._device)
+        elif len(phi) == nx:
+            Phi_nn = phi.to(self._device)
+            x_nn = x.to(self._device)
+        elif len(phi) == 2*nx:
+            Phi_nn = phi.reshape(nx, 2).to(self._device)
+            x_nn = x.to(self._device)
         else:
             Phi_nn = phi.reshape(-1, 1).to(self._device)
             x_nn = x.to(self._device)
+
         return self.forward(Phi_nn, x_nn).detach().cpu().numpy()
 
     @property

@@ -43,8 +43,12 @@ class DeepONet(torch.nn.Module):
             phi = torch.Tensor(phi).to(self._device)
 
         if D is not None and Y is not None:
-            pass
-
+            # single evaluation
+            if len(phi.shape) == 2:
+                phi = phi.reshape(1, -1)
+            # vectorized evaluation
+            elif len(phi.shape) == 3:
+                phi = phi.reshape(phi.shape[0], phi.shape[1]*phi.shape[2])
         elif D is not None:
             if not torch.is_tensor(D):
                 D = torch.Tensor(D).to(self._device)
@@ -133,7 +137,15 @@ class DeepONet(torch.nn.Module):
         U_pred = None
         if not torch.is_tensor(phi_X):
             phi_X = torch.Tensor(phi_X)
-        if D is not None:
+
+        if D is not None and Y is not None:
+            if not torch.is_tensor(D):
+                D = torch.Tensor(D)
+            if not torch.is_tensor(Y):
+                Y = torch.Tensor(Y)
+            U_pred = self.apply_method(phi=phi_X, D=D, Y=Y)
+
+        elif D is not None:
             if not torch.is_tensor(D):
                 D = torch.Tensor(D)
             if torch.equal(phi_X, D):
@@ -143,7 +155,7 @@ class DeepONet(torch.nn.Module):
                 else:
                     U_pred = self.apply_method(phi=phi_X)
 
-        if Y is not None:
+        elif Y is not None:
             if not torch.is_tensor(Y):
                 Y = torch.Tensor(Y)
             if torch.equal(phi_X, Y):

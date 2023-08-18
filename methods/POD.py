@@ -26,12 +26,19 @@ class POD:
         self._svd_model.fit(U)
 
     def galerkin(self, V: np.ndarray, D=None, y=None):
-        # new D is contained in params dict
-        if D is not None:
+
+        if D is not None and y is not None:
+            if torch.is_tensor(D):
+                D = D.numpy()
+            self._solver_params['D'] = D.flatten()
+            if torch.is_tensor(y):
+                y = y.numpy()
+            self._solver_params['F'] = y.flatten()
+        elif D is not None:
             if torch.is_tensor(D):
                 D = D.numpy()
             self._solver_params['D'] = D
-        if y is not None:
+        elif y is not None:
             if torch.is_tensor(y):
                 y = y.numpy()
             if len(y) == 1:
