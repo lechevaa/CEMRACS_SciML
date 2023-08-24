@@ -33,7 +33,7 @@ PARAMS_METHODS = {'POD': {'method_name': 'POD'},
 
 n_epochs = 10000
 HYPERPARAMS_METHODS = {'POD': {'n_components': 10},
-                       'MLP': {'lr': 1e-3, 'epochs': n_epochs, 'optimizer': 'Adam'},
+                       'MLP': {'lr': 1e-4, 'epochs': n_epochs, 'optimizer': 'Adam'},
                        'DEEPONET': {'lr': 1e-04, 'epochs': n_epochs, 'optimizer': 'Adam',
                                     'device': device},
                        'PINN': {'lr': 4e-3, 'epochs': n_epochs, 'optimizer': 'Adam'},

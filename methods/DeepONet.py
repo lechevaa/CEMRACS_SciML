@@ -25,6 +25,8 @@ class DeepONet(torch.nn.Module):
         assert self.branch.device == self.trunk.device
         self._device = self.branch.device
 
+        self._l2_losses = {'train': [], 'val': []}
+
     @property
     def loss_dict(self):
         return self._losses
@@ -68,6 +70,10 @@ class DeepONet(torch.nn.Module):
     def MSE(pred, true=0):
         return torch.square(true - pred).mean()
 
+    @staticmethod
+    def l2_error(U, U_star):
+        return torch.linalg.vector_norm(U - U_star) / torch.linalg.vector_norm(U_star)
+
     def fit(self, hyperparameters: dict, D_train, D_val, U_train, U_val):
 
         epochs = hyperparameters['epochs']
@@ -91,8 +97,8 @@ class DeepONet(torch.nn.Module):
             # Training the model
             self.train()
 
-            U_pred = self.forward(D_train, X)
-            loss_tr = self.MSE(U_pred, U_train)
+            U_train_pred = self.forward(D_train, X)
+            loss_tr = self.MSE(U_train_pred, U_train)
 
             loss_tr.backward()
             optimizer.step()
@@ -102,8 +108,12 @@ class DeepONet(torch.nn.Module):
             self.eval()
 
             with torch.no_grad():
-                U_pred = self.forward(D_val, X)
-                loss_val = self.MSE(U_pred, U_val)
+                U_val_pred = self.forward(D_val, X)
+                loss_val = self.MSE(U_val_pred, U_val)
+
+                self._l2_losses['train'].append(self.l2_error(U_train_pred, U_train).item())
+                self._l2_losses['val'].append(self.l2_error(U_val_pred, U_val).item())
+
 
             self._losses['train'].append(loss_tr.item())
             self._losses['val'].append(loss_val.item())
@@ -115,6 +125,12 @@ class DeepONet(torch.nn.Module):
                 best_model = copy.deepcopy(self.state_dict())
 
         self.load_state_dict(best_model)
+
+    def num_parameters(self):
+        num = 0
+        for p in self.parameters():
+            num += torch.numel(p)
+        return num
 
     def plot(self, ax):
 
