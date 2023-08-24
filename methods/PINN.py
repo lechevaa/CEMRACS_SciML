@@ -20,6 +20,8 @@ class PINN(torch.nn.Module):
 
         self._losses = {'train': {'data': [], 'ic_bc': [], 'residual': []},
                         'val': []}
+        self._l2_losses = {'train': [], 'val': []}
+
         self._model = MLP(params=params)
         self._device = self._model.device
 
@@ -55,6 +57,10 @@ class PINN(torch.nn.Module):
     @staticmethod
     def MSE(pred, true=0):
         return torch.square(true - pred).mean()
+
+    @staticmethod
+    def l2_error(U, U_star):
+        return torch.linalg.vector_norm(U - U_star) / torch.linalg.vector_norm(U_star)
 
     def phys_loss_D(self, D, x):
 
@@ -169,13 +175,24 @@ class PINN(torch.nn.Module):
                 U_val_pred = self._model(DX_val)
                 l_val = self.MSE(U_val, U_val_pred)
                 self._losses['val'].append(l_val.item())
-
+                #"""
+                _u_train = self._model(DX_train)
+                _u_val = self._model(DX_val)
+                self._l2_losses['train'].append(self.l2_error(_u_train, U_train).item())
+                self._l2_losses['val'].append(self.l2_error(_u_val, U_val).item())
+            #"""
             # check if new best model
             if l_val == min(self._losses['val']):
                 best_model = copy.deepcopy(self._model.state_dict())
 
             loading_bar.set_description('[tr : %.1e, val : %.1e]' % (l_tot, l_val))
         #self._model.load_state_dict(best_model)
+
+    def num_parameters(self):
+        num = 0
+        for p in self.parameters():
+            num += torch.numel(p)
+        return num
 
     def plot(self, ax):
         ax.grid(True)

@@ -67,6 +67,7 @@ class FNO1d(torch.nn.Module):
         self._solver_params = params['solver']
         self._method_params = params['method']
         self._losses = {'train': [], 'val': []}
+        self._l2_losses = {'train': [], 'val': []}
 
         self.n_features = params['method']['layers_dim'][0]
         self.lifting_dim = params['method']['layers_dim'][1]
@@ -187,6 +188,10 @@ class FNO1d(torch.nn.Module):
 
         return pred.detach().cpu().numpy()
 
+    @staticmethod
+    def l2_error(U, U_star):
+        return torch.linalg.vector_norm(U - U_star) / torch.linalg.vector_norm(U_star)
+
     def fit(self, hyperparameters: dict, D_train, D_val, U_train, U_val):
         torch.manual_seed(self._method_params['seed'])
         np.random.seed(self._method_params['seed'])
@@ -224,6 +229,7 @@ class FNO1d(torch.nn.Module):
 
             self.train()
             loss_train = 0.
+            err_l2_train = 0.
 
             for i, data in enumerate(trainLoader):
                 inputs, label = data
@@ -236,25 +242,31 @@ class FNO1d(torch.nn.Module):
                 loss.backward()
                 optimizer.step()
                 loss_train += loss.item()
+                err_l2_train += self.l2_error(output, label).item()
 
             loss_train /= (i + 1)
+            err_l2_train /= (i + 1)
 
             # Validation of the model.
             loss_val = 0.
+            err_l2_val = 0.
+
             self.eval()
             with torch.no_grad():
                 for i, data in enumerate(valLoader):
                     inputs, label = data
                     inputs = inputs.to(self.device)
                     label = label.to(self.device)
-                    optimizer.zero_grad()
                     output = self(inputs).squeeze(-1)
                     loss_val += loss_fn(output, label).item()
+                    err_l2_val += self.l2_error(output, label).item()
 
             loss_val /= (i + 1)
             self._losses['train'].append(loss_train)
             self._losses['val'].append(loss_val)
 
+            self._l2_losses['train'].append(err_l2_train)
+            self._l2_losses['val'].append(err_l2_val)
             # check if new best model
             if loss_val == min(self._losses['val']):
                 best_model = copy.deepcopy(self.state_dict())
@@ -262,6 +274,13 @@ class FNO1d(torch.nn.Module):
             loading_bar.set_description('[tr : %.1e, val : %.1e]' % (loss_train, loss_val))
 
         self.load_state_dict(best_model)
+
+    def num_parameters(self):
+        num = 0
+        for p in self.parameters():
+            num += torch.numel(p)
+        return num
+
 
     def plot(self, ax):
 
